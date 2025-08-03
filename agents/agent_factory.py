@@ -27,7 +27,9 @@ class AgentFactory:
                 personality=config["personality"],
                 business_rules=config["business_rules"],
                 database_config=config["database_config"],
-                mcp_servers=config["mcp_servers"]
+                mcp_servers=config["mcp_servers"],
+                message_broker=config.get("message_broker"),
+                session_manager=config.get("session_manager")
             )
             
             logger.info(f"Created agent {agent_id} with personality '{config['personality']}' and business rules '{config['business_rules']}'")

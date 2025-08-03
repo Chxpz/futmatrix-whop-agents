@@ -20,6 +20,10 @@ args = "AI Agents System"
 task = "workflow.run"
 args = "ai_agents_system"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Complete AI Agents System"
+
 [[workflows.workflow]]
 name = "AI Agents System"
 author = "agent"
@@ -35,3 +39,12 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pip install langgraph langchain supabase aiohttp pydantic && python main.py"
+
+[[workflows.workflow]]
+name = "Complete AI Agents System"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python start_system.py"
+waitForPort = 5000

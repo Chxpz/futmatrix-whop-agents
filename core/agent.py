@@ -15,6 +15,8 @@ from core.workflow import WorkflowEngine
 from core.database import DatabaseManager
 from core.mcp_client import MCPClient
 from core.rag_system import RAGSystem
+from core.message_broker import RabbitMQBroker
+from core.session_manager import RedisSessionManager
 from models.schemas import UserInteraction, AgentResponse, AgentState
 from utils.exceptions import AgentError, DatabaseError, MCPError
 
@@ -27,7 +29,9 @@ class Agent:
         personality: str,
         business_rules: str,
         database_config: Dict[str, Any],
-        mcp_servers: List[str]
+        mcp_servers: List[str],
+        message_broker: Optional[RabbitMQBroker] = None,
+        session_manager: Optional[RedisSessionManager] = None
     ):
         self.agent_id = agent_id
         self.personality = personality
@@ -39,6 +43,8 @@ class Agent:
         self.mcp_client = MCPClient(mcp_servers)
         self.rag_system = RAGSystem(self.database, self.mcp_client)
         self.workflow = WorkflowEngine(self)
+        self.message_broker = message_broker
+        self.session_manager = session_manager
         
         # Agent state
         self.state = AgentState(

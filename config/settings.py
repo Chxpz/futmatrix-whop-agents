@@ -18,11 +18,21 @@ class Settings:
             "test_mode": os.getenv("DATABASE_TEST_MODE", "true").lower() == "true"
         }
         
+        # Message broker configuration
+        self.RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://admin:admin123@localhost:5672/")
+        self.REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
+        
         # MCP server configuration
         self.MCP_SERVERS = [
             os.getenv("MCP_SERVER_1", "http://localhost:3001"),
             os.getenv("MCP_SERVER_2", "http://localhost:3002")
         ]
+        
+        # API configuration
+        self.API_HOST = os.getenv("API_HOST", "0.0.0.0")
+        self.API_PORT = int(os.getenv("API_PORT", "5000"))
+        self.WEBSOCKET_HOST = os.getenv("WEBSOCKET_HOST", "localhost")
+        self.WEBSOCKET_PORT = int(os.getenv("WEBSOCKET_PORT", "8765"))
         
         # Logging configuration
         self.LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")

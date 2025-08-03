@@ -64,6 +64,18 @@ class TimeoutError(BaseAgentException):
     """Operation timeout errors."""
     pass
 
+class MessageBrokerError(BaseAgentException):
+    """Message broker operation errors."""
+    pass
+
+class SessionError(BaseAgentException):
+    """Session management errors."""
+    pass
+
+class WebSocketError(BaseAgentException):
+    """WebSocket communication errors."""
+    pass
+
 # Error handlers for common exceptions
 
 def handle_database_error(func):
