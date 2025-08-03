@@ -10,12 +10,14 @@ class Settings:
     """Application settings loaded from environment variables."""
     
     def __init__(self):
-        # Database configuration  
+        # Database configuration - supports both Supabase and local PostgreSQL
         self.DATABASE_CONFIG = {
-            "url": os.getenv("SUPABASE_URL"),
-            "anon_key": os.getenv("SUPABASE_ANON_KEY"),
-            "service_role_key": os.getenv("SUPABASE_SERVICE_ROLE_KEY"),
-            "test_mode": os.getenv("DATABASE_TEST_MODE", "true").lower() == "true"
+            "url": os.getenv("DATABASE_URL", "postgresql://postgres:postgres123@localhost:5432/ai_agents_db"),
+            "supabase_url": os.getenv("SUPABASE_URL", "http://localhost:8000"),
+            "anon_key": os.getenv("SUPABASE_ANON_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0"),
+            "service_role_key": os.getenv("SUPABASE_SERVICE_ROLE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU"),
+            "rest_url": os.getenv("SUPABASE_REST_URL", "http://localhost:8000/rest/v1/"),
+            "test_mode": os.getenv("DATABASE_TEST_MODE", "false").lower() == "true"
         }
         
         # Message broker configuration

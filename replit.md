@@ -1,6 +1,6 @@
 # Overview
 
-This is a production-ready AI agents system with comprehensive message flow control that creates and manages multiple independent AI agents with different personalities and business specializations. The system features complete message flow architecture using RabbitMQ for reliable message queuing, Redis for session management, WebSocket support for real-time communication, and FastAPI REST API for system management. The system supports two main agent types: an analytical financial advisor agent (Agent Alpha) and a creative content creator agent (Agent Beta). Each agent operates with its own personality traits, business rules, and processing workflows built on LangGraph. The system integrates with Supabase for data persistence, implements RAG (Retrieval-Augmented Generation) for knowledge management, and connects to MCP (Model Context Protocol) servers for external tool integration.
+This is a production-ready AI agents system with comprehensive message flow control and agent-specific database schemas. The system creates and manages multiple independent AI agents with different personalities and business specializations, each with their own dedicated database schema containing business-specific tables. The system features complete message flow architecture using RabbitMQ for reliable message queuing, Redis for session management, WebSocket support for real-time communication, and FastAPI REST API for system management. The system supports two main agent types: an analytical financial advisor agent (Agent Alpha) and a creative content creator agent (Agent Beta). Each agent operates with its own personality traits, business rules, processing workflows built on LangGraph, and dedicated database schema tailored to their specific business domain. The system integrates with PostgreSQL/Supabase for data persistence, implements RAG (Retrieval-Augmented Generation) for knowledge management, and connects to MCP (Model Context Protocol) servers for external tool integration.
 
 # User Preferences
 
@@ -36,7 +36,7 @@ The PersonalityManager defines distinct agent behaviors through traits, response
 A rule-based system that applies domain-specific logic based on agent specialization. Rules include financial compliance for advisor agents, content moderation for creator agents, and specialized processing logic for different business domains.
 
 ## Data Persistence Layer
-Uses Supabase as the primary database with connection management, query optimization, and data validation through Pydantic schemas. Stores user interactions, agent responses, and system metadata with proper error handling and connection pooling.
+Uses PostgreSQL/Supabase with agent-specific schema architecture. Each agent has its own dedicated database schema (agent_alpha, agent_beta) with business-specific tables, while shared data lives in the public schema. Features connection management, query optimization, data validation through Pydantic schemas, and automated table creation based on business rules. Stores user interactions, agent responses, and system metadata with proper error handling and connection pooling.
 
 ## RAG Knowledge System
 Implements document ingestion, vector search, and context retrieval for enhanced agent responses. Integrates with the database for document storage and uses content hashing for deduplication and efficient retrieval.
@@ -52,9 +52,11 @@ Comprehensive exception hierarchy with structured error reporting, logging, and 
 
 # External Dependencies
 
-## Database Services
-- **Supabase**: Primary database service for data persistence, user management, and real-time features
-- **PostgreSQL**: Underlying database engine (via Supabase) for structured data storage
+## Database Services  
+- **PostgreSQL**: Primary database engine with agent-specific schema architecture (agent_alpha, agent_beta schemas)
+- **Supabase Stack**: Complete database stack including PostgREST API, Kong gateway, and Supabase Studio for management
+- **Agent Schema Management**: Automated schema creation and management for agent-specific business tables
+- **Docker Integration**: Full containerized database stack with initialization scripts
 
 ## AI/ML Services
 - **OpenAI API**: Language model integration for agent responses and natural language processing
