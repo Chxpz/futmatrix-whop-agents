@@ -1,0 +1,37 @@
+modules = ["python-3.11"]
+
+[nix]
+channel = "stable-25_05"
+packages = ["bash", "libxcrypt"]
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "AI Agents System"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "ai_agents_system"
+
+[[workflows.workflow]]
+name = "AI Agents System"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pip install -q langgraph langchain supabase pydantic aiohttp postgrest && python main.py"
+
+[[workflows.workflow]]
+name = "ai_agents_system"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pip install langgraph langchain supabase aiohttp pydantic && python main.py"
