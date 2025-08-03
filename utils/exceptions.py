@@ -76,6 +76,22 @@ class WebSocketError(BaseAgentException):
     """WebSocket communication errors."""
     pass
 
+class LLMError(BaseAgentException):
+    """LLM/OpenAI API errors."""
+    pass
+
+class SecurityError(BaseAgentException):
+    """Security-related errors."""
+    pass
+
+class MonitoringError(BaseAgentException):
+    """Monitoring system errors."""
+    pass
+
+class AgentFactoryError(BaseAgentException):
+    """Agent factory operation errors."""
+    pass
+
 # Error handlers for common exceptions
 
 def handle_database_error(func):

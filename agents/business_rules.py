@@ -2,9 +2,29 @@
 Business rules engine for different agent specializations.
 """
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from datetime import datetime
 from utils.exceptions import BusinessRuleError
+
+class BusinessRules:
+    """Manager for business rules across different domains."""
+    
+    def __init__(self):
+        self.logger = logging.getLogger("business_rules")
+        self.domains = {
+            "financial_advisor": "Financial advisory and investment management",
+            "content_creator": "Content creation and marketing assistance", 
+            "technical_support": "Technical support and troubleshooting",
+            "general_assistant": "General purpose assistance"
+        }
+    
+    def has_domain(self, domain: str) -> bool:
+        """Check if business domain exists."""
+        return domain in self.domains
+    
+    def list_domains(self) -> List[str]:
+        """List available business domains."""
+        return list(self.domains.keys())
 
 class BusinessRuleEngine:
     """Engine for processing business logic based on agent specialization."""
