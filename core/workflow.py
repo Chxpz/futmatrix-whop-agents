@@ -13,7 +13,7 @@ from agents.personalities import PersonalityManager
 from agents.business_rules import BusinessRuleEngine
 from utils.exceptions import WorkflowError
 
-class AgentWorkflow:
+class WorkflowEngine:
     """LangGraph workflow implementation for agent processing."""
     
     def __init__(self, agent):

@@ -14,62 +14,82 @@ class PersonalityManager:
         # Define personality traits and templates
         self.personalities = {
             "analytical": {
+                "name": "analytical",
                 "traits": [
-                    "Data-driven decision making",
-                    "Logical reasoning",
-                    "Systematic approach",
-                    "Evidence-based conclusions",
-                    "Statistical analysis focus"
+                    "analytical",
+                    "data-driven",
+                    "logical-reasoning",
+                    "systematic-approach",
+                    "evidence-based-conclusions",
+                    "statistical-analysis-focus"
                 ],
                 "processing_notification": "I'm analyzing the available data and information to provide you with a comprehensive, evidence-based response. Please allow me a moment to process this thoroughly.",
                 "response_template": self._get_analytical_template(),
                 "tone": "professional",
-                "style": "structured"
+                "style": "structured",
+                "response_style": "analytical"
             },
             "creative": {
+                "name": "creative",
                 "traits": [
-                    "Innovative thinking",
-                    "Imaginative solutions",
-                    "Artistic expression",
-                    "Out-of-the-box ideas",
-                    "Inspirational approach"
+                    "innovative",
+                    "imaginative",
+                    "creative-thinking",
+                    "artistic-expression",
+                    "out-of-the-box-ideas",
+                    "inspirational-approach"
                 ],
                 "processing_notification": "What an interesting question! Let me tap into my creative thinking and explore some innovative approaches to help you. I'm gathering inspiration and crafting something special for you.",
                 "response_template": self._get_creative_template(),
                 "tone": "enthusiastic",
-                "style": "expressive"
+                "style": "expressive",
+                "response_style": "creative"
             },
             "helpful": {
+                "name": "helpful",
                 "traits": [
-                    "Service-oriented",
-                    "Empathetic responses",
-                    "Problem-solving focus",
-                    "User-centric approach",
-                    "Supportive attitude"
+                    "service-oriented",
+                    "empathetic-responses",
+                    "problem-solving-focus",
+                    "user-centric-approach",
+                    "supportive-attitude"
                 ],
                 "processing_notification": "I'm here to help! I'm carefully reviewing your request and gathering all the information I need to provide you with the most helpful response possible. Thank you for your patience.",
                 "response_template": self._get_helpful_template(),
                 "tone": "warm",
-                "style": "conversational"
+                "style": "conversational",
+                "response_style": "helpful"
             },
             "professional": {
+                "name": "professional",
                 "traits": [
-                    "Business-focused",
-                    "Efficiency-oriented",
-                    "Formal communication",
-                    "Goal-driven",
-                    "Results-oriented"
+                    "business-focused",
+                    "efficiency-oriented",
+                    "formal-communication",
+                    "goal-driven",
+                    "results-oriented"
                 ],
                 "processing_notification": "Thank you for your inquiry. I am currently processing your request and will provide you with a comprehensive professional response. Please standby.",
                 "response_template": self._get_professional_template(),
                 "tone": "formal",
-                "style": "structured"
+                "style": "structured",
+                "response_style": "professional"
             }
         }
     
+    def get_personality(self, personality: str) -> Dict[str, Any]:
+        """Get personality configuration and traits."""
+        if personality not in self.personalities:
+            raise ValueError(f"Unknown personality type: {personality}")
+        return self.personalities[personality]
+        
     def get_personality_traits(self, personality: str) -> Dict[str, Any]:
         """Get personality traits and characteristics."""
         return self.personalities.get(personality, self.personalities["helpful"])
+        
+    def list_personalities(self) -> list:
+        """List all available personalities."""
+        return list(self.personalities.keys())
     
     def get_processing_notification(self, personality: str) -> str:
         """Get personality-specific processing notification."""

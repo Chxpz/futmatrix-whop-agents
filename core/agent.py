@@ -11,23 +11,14 @@ from langgraph.graph import StateGraph
 from langchain.schema import BaseMessage, HumanMessage, AIMessage
 from pydantic import BaseModel
 
-from core.workflow import AgentWorkflow
+from core.workflow import WorkflowEngine
 from core.database import DatabaseManager
 from core.mcp_client import MCPClient
 from core.rag_system import RAGSystem
-from models.schemas import UserInteraction, AgentResponse
+from models.schemas import UserInteraction, AgentResponse, AgentState
 from utils.exceptions import AgentError, DatabaseError, MCPError
 
-@dataclass
-class AgentState:
-    """Agent internal state."""
-    messages: List[BaseMessage]
-    current_task: Optional[str]
-    user_id: Optional[str]
-    session_id: Optional[str]
-    context: Dict[str, Any]
-
-class BaseAgent:
+class Agent:
     """Base AI Agent with LangGraph workflow and MCP integration."""
     
     def __init__(
@@ -47,14 +38,13 @@ class BaseAgent:
         self.database = DatabaseManager(database_config)
         self.mcp_client = MCPClient(mcp_servers)
         self.rag_system = RAGSystem(self.database, self.mcp_client)
-        self.workflow = AgentWorkflow(self)
+        self.workflow = WorkflowEngine(self)
         
         # Agent state
         self.state = AgentState(
-            messages=[],
-            current_task=None,
             user_id=None,
             session_id=None,
+            messages=[],
             context={}
         )
         

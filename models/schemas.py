@@ -3,6 +3,7 @@ Pydantic schemas for data validation and serialization.
 """
 from datetime import datetime
 from typing import Dict, Any, Optional, List
+from dataclasses import dataclass
 from pydantic import BaseModel, Field, validator
 
 class UserInteraction(BaseModel):
@@ -245,3 +246,12 @@ def serialize_for_database(model: BaseModel) -> Dict[str, Any]:
 def deserialize_from_database(data: Dict[str, Any], model_class: type) -> BaseModel:
     """Deserialize database data to Pydantic model."""
     return model_class(**data)
+
+# Agent state for LangGraph workflow
+@dataclass
+class AgentState:
+    """Agent internal state for LangGraph workflow."""
+    user_id: Optional[str]
+    session_id: Optional[str]
+    messages: List[Any]  # Will be BaseMessage from langchain but avoiding circular import
+    context: Dict[str, Any]

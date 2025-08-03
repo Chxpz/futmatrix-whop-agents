@@ -3,14 +3,14 @@ Factory for creating configured AI agents with different personalities.
 """
 import logging
 from typing import Dict, Any
-from core.agent import BaseAgent
+from core.agent import Agent
 from utils.exceptions import AgentError
 
 class AgentFactory:
     """Factory class for creating AI agents with specific configurations."""
     
     @staticmethod
-    async def create_agent(agent_id: str, config: Dict[str, Any]) -> BaseAgent:
+    async def create_agent(agent_id: str, config: Dict[str, Any]) -> Agent:
         """Create and initialize an AI agent with the specified configuration."""
         logger = logging.getLogger("agent_factory")
         
@@ -22,7 +22,7 @@ class AgentFactory:
                     raise AgentError(f"Missing required configuration key: {key}")
             
             # Create agent instance
-            agent = BaseAgent(
+            agent = Agent(
                 agent_id=agent_id,
                 personality=config["personality"],
                 business_rules=config["business_rules"],
