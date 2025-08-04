@@ -11,12 +11,13 @@ from openai import AsyncOpenAI
 from config.settings import Settings
 from agents.personalities import PersonalityManager
 from agents.business_rules import BusinessRules
+from core.mcp_client import MCPClient
 from utils.logger import setup_logger
 
 class SimpleAgent:
-    """Simplified AI agent with OpenAI integration."""
+    """Simplified AI agent with OpenAI integration and optional MCP support."""
     
-    def __init__(self, agent_id: str, personality_type: str, business_domain: str, openai_key: str):
+    def __init__(self, agent_id: str, personality_type: str, business_domain: str, openai_key: str, mcp_servers: Optional[list] = None):
         self.agent_id = agent_id
         self.personality_type = personality_type
         self.business_domain = business_domain
@@ -24,6 +25,10 @@ class SimpleAgent:
         
         # OpenAI client
         self.openai_client = AsyncOpenAI(api_key=openai_key)
+        
+        # MCP client for external tools (optional)
+        self.mcp_client = MCPClient(mcp_servers or [])
+        self.mcp_tools = []
         
         # Conversation storage
         self.conversations = {}
@@ -33,6 +38,21 @@ class SimpleAgent:
         self.business_rules = BusinessRules()
         
         self.personality = self.personality_manager.get_personality(personality_type)
+    
+    async def initialize(self):
+        """Initialize agent and MCP connections."""
+        try:
+            # Connect to MCP servers if configured
+            await self.mcp_client.connect()
+            self.mcp_tools = await self.mcp_client.list_tools()
+            
+            if self.mcp_tools:
+                self.logger.info(f"Agent {self.agent_id} connected to MCP with {len(self.mcp_tools)} tools available")
+            else:
+                self.logger.info(f"Agent {self.agent_id} running without MCP tools")
+                
+        except Exception as e:
+            self.logger.warning(f"MCP initialization failed, continuing without external tools: {e}")
     
     def _build_system_prompt(self) -> str:
         """Build system prompt for the agent."""
@@ -56,9 +76,12 @@ INSTRUCTIONS:
 Remember: You are a backend AI agent providing intelligent responses for a frontend application."""
     
     async def process_message(self, user_id: str, message: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Process user message and generate response."""
+        """Process user message and generate response with optional MCP tool usage."""
         try:
             self.logger.info(f"Processing message from user {user_id}")
+            
+            # Check if message might require MCP tools
+            enhanced_context = await self._enhance_with_mcp_data(message, context)
             
             # Build messages for OpenAI
             messages = [{"role": "system", "content": self._build_system_prompt()}]
@@ -71,9 +94,9 @@ Remember: You are a backend AI agent providing intelligent responses for a front
             # Add current user message
             messages.append({"role": "user", "content": message})
             
-            # Add context if provided
-            if context:
-                context_msg = f"Additional context: {json.dumps(context)}"
+            # Add enhanced context if available
+            if enhanced_context:
+                context_msg = f"Additional context and data: {json.dumps(enhanced_context)}"
                 messages.append({"role": "system", "content": context_msg})
             
             # Generate response
@@ -107,7 +130,9 @@ Remember: You are a backend AI agent providing intelligent responses for a front
                 "personality": self.personality_type,
                 "business_domain": self.business_domain,
                 "timestamp": datetime.utcnow().isoformat(),
-                "tokens_used": response.usage.total_tokens if response.usage else 0
+                "tokens_used": response.usage.total_tokens if response.usage else 0,
+                "mcp_tools_used": len(self.mcp_tools) > 0,
+                "mcp_tools_available": len(self.mcp_tools)
             }
             
         except Exception as e:
@@ -119,6 +144,65 @@ Remember: You are a backend AI agent providing intelligent responses for a front
                 "error": str(e),
                 "timestamp": datetime.utcnow().isoformat()
             }
+    
+    async def _enhance_with_mcp_data(self, message: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Enhance message context using MCP tools if available."""
+        try:
+            enhanced_context = context.copy() if context else {}
+            
+            if not self.mcp_tools:
+                return enhanced_context
+            
+            # Check if message suggests need for external data retrieval
+            data_keywords = ["latest", "current", "recent", "today", "search", "find", "lookup", "get data"]
+            needs_data = any(keyword in message.lower() for keyword in data_keywords)
+            
+            if needs_data:
+                # Try RAG query first
+                rag_results = await self.mcp_client.query_rag(message)
+                if rag_results:
+                    enhanced_context["rag_results"] = rag_results
+                    self.logger.debug(f"Enhanced context with {len(rag_results)} RAG results")
+                
+                # Try searching for relevant tools
+                search_tools = [tool for tool in self.mcp_tools if "search" in tool.get("name", "").lower()]
+                if search_tools and self.business_domain == "financial_advisor":
+                    # Example: financial data tool usage
+                    try:
+                        financial_data = await self.mcp_client.call_tool(
+                            search_tools[0]["name"],
+                            {"query": message, "domain": "financial"},
+                            search_tools[0]["server_url"]
+                        )
+                        enhanced_context["external_data"] = financial_data
+                        self.logger.debug("Enhanced context with financial data from MCP")
+                    except Exception as e:
+                        self.logger.debug(f"MCP tool call failed: {e}")
+            
+            return enhanced_context
+            
+        except Exception as e:
+            self.logger.debug(f"Context enhancement failed: {e}")
+            return context or {}
+    
+    async def get_available_tools(self) -> Dict[str, Any]:
+        """Get information about available MCP tools."""
+        try:
+            return {
+                "mcp_connected": len(self.mcp_client.connected_servers) > 0,
+                "servers_connected": len(self.mcp_client.connected_servers),
+                "tools_available": len(self.mcp_tools),
+                "tools": [
+                    {
+                        "name": tool.get("name", "Unknown"),
+                        "description": tool.get("description", "No description"),
+                        "server": tool.get("server_url", "Unknown")
+                    }
+                    for tool in self.mcp_tools
+                ]
+            }
+        except Exception as e:
+            return {"error": str(e), "mcp_connected": False}
 
 
 class SimpleAgentSystem:
@@ -157,8 +241,10 @@ class SimpleAgentSystem:
                 config["agent_id"],
                 config["personality"],
                 config["domain"],
-                self.settings.OPENAI_API_KEY
+                self.settings.OPENAI_API_KEY,
+                mcp_servers=[]  # Add MCP servers here when available
             )
+            await agent.initialize()  # Initialize MCP connections
             self.agents[config["agent_id"]] = agent
             self.logger.info(f"Created agent: {config['agent_id']}")
         
