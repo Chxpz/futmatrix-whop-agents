@@ -8,7 +8,7 @@
     },
     {
       "role": "assistant",
-      "content": "Hello, thank you for reaching out. As an AI assistant with a focus on financial advisory, I'm here to provide insights and guidance on financial matters. If you have any questions or need assistance related to investments, financial planning, or economic analysis, please feel free to ask. How can I assist you today?"
+      "content": "Hello, thank you for reaching out. As an AI assistant specializing in financial advisory, I'm here to provide insights and guidance on financial matters. If you have any questions or need assistance related to financial planning, investment strategies, or any other financial topics, please feel free to ask. How can I assist you today?"
     },
     {
       "role": "user",
@@ -16,17 +16,9 @@
     },
     {
       "role": "assistant",
-      "content": "Hello again, thank you for confirming. If you have any questions or need assistance related to financial matters, such as investment strategies, retirement planning, or market analysis, please let me know how I can assist you."
-    },
-    {
-      "role": "user",
-      "content": "Hello, this is a health check."
-    },
-    {
-      "role": "assistant",
-      "content": "Hello, thank you for the update. If you have any financial inquiries or require assistance with investment strategies, financial planning, or market analysis, feel free to let me know how I can assist you."
+      "content": "Hello, thank you for conducting a health check. Please let me know if there's anything specific you'd like to test or verify regarding my capabilities, especially in the realm of financial advisory and investment management. I'm here to assist with any inquiries you may have."
     }
   ],
-  "updated_at": "2025-08-04T19:39:56.702358",
-  "message_count": 6
+  "updated_at": "2025-08-04T19:42:51.178606",
+  "message_count": 4
 }

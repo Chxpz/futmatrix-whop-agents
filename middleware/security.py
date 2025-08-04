@@ -3,6 +3,7 @@ Production Security Middleware for AI Agents API
 """
 import time
 import logging
+import os
 from collections import defaultdict
 from typing import Dict, Optional
 from fastapi import HTTPException, Request, Response
@@ -97,10 +98,28 @@ class APIKeyManager:
         return 'ai_' + ''.join(secrets.choice(alphabet) for _ in range(32))
     
     @staticmethod
-    def get_demo_keys() -> list:
-        """Get demo API keys for testing."""
-        return [
-            "ai_demo_key_12345",
-            "ai_test_key_67890",
-            "ai_prod_key_abcdef"
-        ]
+    def get_production_keys() -> list:
+        """Get production API keys from environment."""
+        keys = []
+        
+        # Load API keys from environment variables
+        for i in range(1, 6):  # Support up to 5 API keys
+            key = os.getenv(f"API_KEY_{i}")
+            if key:
+                keys.append(key)
+        
+        # Fallback to single API_KEY environment variable
+        single_key = os.getenv("API_KEY") 
+        if single_key:
+            keys.append(single_key)
+            
+        # For development/testing only - remove in production
+        if os.getenv("REPLIT_ENVIRONMENT") or os.getenv("DEVELOPMENT_MODE") == "true":
+            if not keys:  # Only use demo keys if no production keys are set
+                keys = [
+                    "ai_demo_key_12345",
+                    "ai_test_key_67890", 
+                    "ai_prod_key_abcdef"
+                ]
+        
+        return keys

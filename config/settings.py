@@ -10,25 +10,31 @@ class Settings:
     """Application settings loaded from environment variables."""
     
     def __init__(self):
-        # Database configuration - supports both Supabase and local PostgreSQL
+        # Database configuration - production mode
         self.DATABASE_CONFIG = {
-            "url": os.getenv("DATABASE_URL", "postgresql://postgres:postgres123@localhost:5432/ai_agents_db"),
-            "supabase_url": os.getenv("SUPABASE_URL", "http://localhost:8000"),
-            "anon_key": os.getenv("SUPABASE_ANON_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0"),
-            "service_role_key": os.getenv("SUPABASE_SERVICE_ROLE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU"),
-            "rest_url": os.getenv("SUPABASE_REST_URL", "http://localhost:8000/rest/v1/"),
+            "url": os.getenv("DATABASE_URL"),
+            "supabase_url": os.getenv("SUPABASE_URL"),
+            "anon_key": os.getenv("SUPABASE_ANON_KEY"),
+            "service_role_key": os.getenv("SUPABASE_SERVICE_ROLE_KEY"),
+            "rest_url": os.getenv("SUPABASE_REST_URL"),
             "test_mode": os.getenv("DATABASE_TEST_MODE", "false").lower() == "true"
         }
         
-        # Message broker configuration
-        self.RABBITMQ_URL = os.getenv("RABBITMQ_URL", "amqp://admin:admin123@localhost:5672/")
-        self.REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
+        # For production, require database configuration
+        if not os.getenv("REPLIT_ENVIRONMENT"):  # Allow defaults in Replit development
+            if not self.DATABASE_CONFIG["url"]:
+                raise ValueError("DATABASE_URL is required for production deployment")
         
-        # MCP server configuration
-        self.MCP_SERVERS = [
-            os.getenv("MCP_SERVER_1", "http://localhost:3001"),
-            os.getenv("MCP_SERVER_2", "http://localhost:3002")
-        ]
+        # Message broker configuration - optional for standalone mode
+        self.RABBITMQ_URL = os.getenv("RABBITMQ_URL")
+        self.REDIS_URL = os.getenv("REDIS_URL")
+        
+        # MCP server configuration - optional
+        self.MCP_SERVERS = []
+        if os.getenv("MCP_SERVER_1"):
+            self.MCP_SERVERS.append(os.getenv("MCP_SERVER_1"))
+        if os.getenv("MCP_SERVER_2"):
+            self.MCP_SERVERS.append(os.getenv("MCP_SERVER_2"))
         
         # API configuration
         self.API_HOST = os.getenv("API_HOST", "0.0.0.0")
@@ -40,9 +46,13 @@ class Settings:
         self.LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
         self.LOG_FORMAT = os.getenv("LOG_FORMAT", "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         
-        # API Keys
-        self.OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "default_openai_key")
-        self.MCP_API_KEY = os.getenv("MCP_API_KEY", "default_mcp_key")
+        # API Keys - REQUIRED for production
+        self.OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+        self.MCP_API_KEY = os.getenv("MCP_API_KEY")
+        
+        # Validate required keys
+        if not self.OPENAI_API_KEY:
+            raise ValueError("OPENAI_API_KEY environment variable is required for production")
         
         # Agent configuration
         self.AGENT_TIMEOUT = int(os.getenv("AGENT_TIMEOUT", "300"))  # 5 minutes

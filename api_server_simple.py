@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
 import time
+import os
 
 from standalone_simple import SimpleAgentSystem
 from utils.logger import setup_logger
@@ -45,8 +46,8 @@ api_metrics = APIMetrics()
 # Add production security middleware
 app.add_middleware(
     ProductionSecurityMiddleware,
-    api_keys=APIKeyManager.get_demo_keys(),
-    rate_limit=100  # 100 requests per minute per IP
+    api_keys=APIKeyManager.get_production_keys(),
+    rate_limit=int(os.getenv("RATE_LIMIT", "100"))  # Configurable rate limit
 )
 
 # Pydantic models for API requests

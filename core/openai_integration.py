@@ -210,7 +210,7 @@ You adapt to user needs and provide comprehensive assistance across various topi
                 "timestamp": datetime.utcnow().isoformat()
             }
     
-    async def _call_openai(self, messages: List[Dict[str, str]]) -> Dict[str, Any]:
+    async def _call_openai(self, messages: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Make API call to OpenAI."""
         try:
             # Adjust temperature based on personality
