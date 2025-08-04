@@ -70,6 +70,22 @@ curl -X POST http://localhost:5000/agents/agent_alpha/chat \
 
 **Expected Response Type**: Systematic investment strategy with asset allocation recommendations, risk assessment, and step-by-step guidance.
 
+#### Real-time Market Data (with MCP)
+```bash
+curl -X POST http://localhost:5000/agents/agent_alpha/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "trader_456",
+    "message": "What are the latest tech stock prices and should I buy now?",
+    "context": {
+      "risk_tolerance": "aggressive",
+      "portfolio_focus": "technology"
+    }
+  }'
+```
+
+**Expected Response Type**: When MCP financial data tools are available, the agent will automatically retrieve current market data and provide analysis based on real-time information.
+
 #### Portfolio Analysis
 ```bash
 curl -X POST http://localhost:5000/agents/agent_alpha/chat \

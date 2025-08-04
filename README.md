@@ -19,9 +19,11 @@ The AI Agents System is a production-ready, multi-agent AI platform that creates
 
 - **Multi-Agent Architecture**: Deploy multiple AI agents with different personalities and business domains
 - **OpenAI Integration**: Powered by GPT-4o for intelligent, context-aware responses
+- **MCP Integration**: Model Context Protocol support for external tools and data retrieval
 - **REST API**: Comprehensive API endpoints for frontend integration
 - **Personality System**: Analytical, creative, and professional personality types
 - **Business Specialization**: Financial advisor, content creator, technical support domains
+- **Smart Context Enhancement**: Automatic external data integration when MCP tools are available
 - **Real-time Communication**: WebSocket support for live interactions
 - **Conversation Memory**: Context-aware conversations with message history
 - **Scalable Design**: Modular architecture with graceful degradation

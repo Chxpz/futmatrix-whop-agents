@@ -5,6 +5,22 @@ All notable changes to the AI Agents System will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-08-04
+
+### 🚀 MCP Integration Update
+
+#### Added
+- **MCP (Model Context Protocol) Integration**: Full support for external tools and data sources
+- **Smart Context Enhancement**: Automatic detection of messages requiring external data
+- **Tool Discovery**: New `/agents/{agent_id}/tools` endpoint to list available MCP tools
+- **RAG System Integration**: Query external knowledge bases through MCP servers
+- **Graceful Fallback**: System works with or without MCP servers connected
+
+#### Enhanced
+- **Agent Intelligence**: Agents now automatically use external tools when keywords like "latest", "current", "search" are detected
+- **Response Quality**: Enhanced responses with real-time data when MCP tools are available
+- **API Capabilities**: Extended API with MCP tool information and status
+
 ## [1.0.0] - 2025-08-04
 
 ### 🎉 Initial Release

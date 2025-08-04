@@ -269,6 +269,39 @@ Get detailed information about a specific agent.
 }
 ```
 
+#### GET /agents/{agent_id}/tools
+
+Get available MCP tools and external integrations for a specific agent.
+
+**Parameters:**
+- `agent_id` (path): The ID of the agent (e.g., "agent_alpha", "agent_beta")
+
+**Response:**
+```json
+{
+  "success": true,
+  "agent_id": "agent_alpha",
+  "tools": {
+    "mcp_connected": true,
+    "servers_connected": 2,
+    "tools_available": 5,
+    "tools": [
+      {
+        "name": "financial_data_search",
+        "description": "Search for current financial market data and stock prices",
+        "server": "https://financial-mcp.example.com"
+      },
+      {
+        "name": "rag_query",
+        "description": "Query knowledge base for relevant information",
+        "server": "https://knowledge-mcp.example.com"
+      }
+    ]
+  },
+  "timestamp": "2025-08-04T16:32:26.614Z"
+}
+```
+
 **Error Response (404):**
 ```json
 {

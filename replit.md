@@ -8,6 +8,8 @@ This is a production-ready AI agents system with comprehensive REST API and inte
 - FastAPI REST API server running on port 5000
 - Two fully functional AI agents (agent_alpha, agent_beta)  
 - OpenAI GPT-4o integration with conversation context
+- MCP (Model Context Protocol) integration for external tools and data
+- Smart context enhancement with automatic data retrieval
 - Personality-based response generation (analytical vs creative)
 - Business domain specialization (financial advisor vs content creator)
 - Comprehensive API endpoints for frontend integration
