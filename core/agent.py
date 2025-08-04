@@ -99,7 +99,10 @@ class Agent:
             self.state.messages.append(HumanMessage(content=prompt))
             self.state.user_id = user_id
             self.state.session_id = session_id
-            self.state.current_task = "processing_prompt"
+            # Set current task in metadata since current_task doesn't exist in AgentState
+            if not hasattr(self.state, 'metadata'):
+                self.state.metadata = {}
+            self.state.metadata["current_task"] = "processing_prompt"
             
             # Log interaction
             interaction = UserInteraction(
@@ -135,7 +138,8 @@ class Agent:
             elif isinstance(result, dict) and 'context' in result:
                 context_metadata = result['context']
             else:
-                context_metadata = self.state.context
+                # Use metadata instead of context as context doesn't exist in AgentState
+                context_metadata = getattr(self.state, 'metadata', {})
                 
             response = AgentResponse(
                 agent_id=self.agent_id,

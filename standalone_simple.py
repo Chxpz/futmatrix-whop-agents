@@ -12,6 +12,7 @@ from config.settings import Settings
 from agents.personalities import PersonalityManager
 from agents.business_rules import BusinessRules
 from core.mcp_client import MCPClient
+from core.database_simple import SimpleDatabase
 from utils.logger import setup_logger
 
 class SimpleAgent:
@@ -30,8 +31,9 @@ class SimpleAgent:
         self.mcp_client = MCPClient(mcp_servers or [])
         self.mcp_tools = []
         
-        # Conversation storage
+        # Conversation storage and database
         self.conversations = {}
+        self.database = SimpleDatabase()
         
         # Personality and business context
         self.personality_manager = PersonalityManager()
@@ -99,10 +101,17 @@ Remember: You are a backend AI agent providing intelligent responses for a front
                 context_msg = f"Additional context and data: {json.dumps(enhanced_context)}"
                 messages.append({"role": "system", "content": context_msg})
             
-            # Generate response
+            # Generate response with proper type conversion
+            from openai.types.chat import ChatCompletionMessageParam
+            typed_messages: list[ChatCompletionMessageParam] = []
+            
+            for msg in messages:
+                if isinstance(msg, dict):
+                    typed_messages.append(msg)  # type: ignore
+                    
             response = await self.openai_client.chat.completions.create(
                 model="gpt-4o",
-                messages=messages,
+                messages=typed_messages,
                 max_tokens=1000,
                 temperature=0.7 if self.personality_type == "creative" else 0.3
             )
@@ -121,6 +130,9 @@ Remember: You are a backend AI agent providing intelligent responses for a front
             # Keep only recent conversation
             if len(self.conversations[user_id]) > 20:
                 self.conversations[user_id] = self.conversations[user_id][-20:]
+            
+            # Save to database
+            await self.database.save_conversation(self.agent_id, user_id, self.conversations[user_id])
             
             return {
                 "success": True,

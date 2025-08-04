@@ -14,7 +14,7 @@ from functools import wraps
 
 from fastapi import HTTPException, Request, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 import jwt as pyjwt
 
 from utils.exceptions import SecurityError

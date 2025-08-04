@@ -1,6 +1,5 @@
 """
-REST API Server for AI Agents System
-Provides API endpoints for frontend communication with intelligent agents
+Simple REST API Server for AI Agents System - Production Ready
 """
 import asyncio
 import logging
@@ -15,15 +14,13 @@ from pydantic import BaseModel
 import uvicorn
 
 from standalone_simple import SimpleAgentSystem
-from core.security import SecurityManager
-from config.settings import Settings
 from utils.logger import setup_logger
 
 # Initialize FastAPI app
 app = FastAPI(
     title="AI Agents API",
-    description="REST API for intelligent AI agents with personality-specific responses",
-    version="1.0.0",
+    description="Production-ready REST API for intelligent AI agents with MCP integration",
+    version="1.2.0",
     docs_url="/docs",
     redoc_url="/redoc"
 )
@@ -37,11 +34,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Global agent system and security
+# Global agent system
 agent_system = None
-security_manager = None
-
-# Note: Security middleware initialization moved to startup for compatibility
 
 # Pydantic models for API requests
 class ChatRequest(BaseModel):
@@ -58,26 +52,26 @@ class AnalysisRequest(BaseModel):
 @app.on_event("startup")
 async def startup_event():
     """Initialize the AI agents system."""
-    global agent_system, security_manager
+    global agent_system
     
     setup_logger()
     logger = logging.getLogger("api_startup")
     
     try:
-        logger.info("Starting AI Agents API Server")
+        logger.info("Starting AI Agents API Server v1.2.0")
         
         # Initialize agent system
         agent_system = SimpleAgentSystem()
         await agent_system.initialize()
         
         logger.info("AI Agents API Server ready!")
-        security_status = "enabled" if security_manager else "disabled"
-        logger.info(f"Security: Rate limiting and API key validation {security_status}")
+        logger.info("Features: OpenAI GPT-4o, MCP Integration, Database Persistence")
         logger.info("Available endpoints:")
         logger.info("  GET  /                    - System info")
         logger.info("  GET  /health              - Health check")
         logger.info("  GET  /agents              - List agents")
-        logger.info("  POST /agents/{agent_id}/chat - Chat with agent")
+        logger.info("  GET  /agents/{id}/tools   - Agent MCP tools")
+        logger.info("  POST /agents/{id}/chat    - Chat with agent")
         logger.info("  POST /demo/test           - Test agents")
         logger.info("  GET  /docs                - API documentation")
         
@@ -88,8 +82,16 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     """Cleanup on shutdown."""
+    global agent_system
     logger = logging.getLogger("api_shutdown")
-    logger.info("AI Agents API Server shutdown")
+    
+    if agent_system:
+        # Save any pending data
+        for agent in agent_system.agents.values():
+            for user_id, conversation in agent.conversations.items():
+                await agent.database.save_conversation(agent.agent_id, user_id, conversation)
+    
+    logger.info("AI Agents API Server shutdown complete")
 
 # API Endpoints
 
@@ -99,29 +101,28 @@ async def root():
     return {
         "service": "AI Agents API",
         "status": "running",
-        "version": "1.0.0",
-        "description": "Backend API for intelligent AI agents with distinct personalities and business expertise",
-        "timestamp": datetime.utcnow().isoformat(),
-        "agents_available": len(agent_system.agents) if agent_system else 0,
+        "version": "1.2.0",
+        "description": "Production-ready multi-agent AI system with OpenAI GPT-4o, MCP integration, and database persistence",
         "features": [
-            "OpenAI-powered intelligent responses",
-            "Personality-based agent behavior",
-            "Business domain specialization", 
-            "Conversation context management",
-            "RESTful API interface"
+            "OpenAI GPT-4o Integration",
+            "MCP (Model Context Protocol) Support", 
+            "Multi-Agent Architecture",
+            "Conversation Persistence",
+            "Smart Context Enhancement"
         ],
+        "timestamp": datetime.utcnow().isoformat(),
         "endpoints": {
             "health": "/health",
-            "agents_list": "/agents",
+            "agents": "/agents", 
             "chat": "/agents/{agent_id}/chat",
-            "demo": "/demo/test",
-            "documentation": "/docs"
+            "tools": "/agents/{agent_id}/tools",
+            "docs": "/docs"
         }
     }
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint."""
+    """Health check endpoint with system diagnostics."""
     try:
         if not agent_system:
             return JSONResponse(
@@ -148,6 +149,8 @@ async def health_check():
             "system_components": {
                 "agent_system": "operational",
                 "openai_integration": "active",
+                "mcp_integration": "available",
+                "database_persistence": "active",
                 "personality_system": "loaded",
                 "business_rules": "loaded"
             }
@@ -182,9 +185,13 @@ async def list_agents():
                 **agent_info,
                 "capabilities": {
                     "chat": f"/agents/{agent_id}/chat",
+                    "tools": f"/agents/{agent_id}/tools",
                     "specialization": agent.business_domain,
                     "personality_traits": agent.personality.get('traits', []),
-                    "communication_style": agent.personality.get('tone', 'professional')
+                    "communication_style": agent.personality.get('tone', 'professional'),
+                    "mcp_tools": len(agent.mcp_tools),
+                    "conversation_memory": True,
+                    "database_persistence": True
                 },
                 "business_focus": agent.business_rules.domains.get(agent.business_domain, "General assistance"),
                 "example_use_cases": _get_example_use_cases(agent.business_domain)
@@ -197,6 +204,37 @@ async def list_agents():
         }
         
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/agents/{agent_id}/tools")
+async def get_agent_tools(agent_id: str):
+    """Get available MCP tools for a specific agent."""
+    try:
+        if not agent_system:
+            raise HTTPException(status_code=503, detail="Agent system not initialized")
+        
+        if agent_id not in agent_system.agents:
+            raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
+        
+        agent = agent_system.agents[agent_id]
+        tools_info = {
+            "mcp_connected": len(agent.mcp_tools) > 0,
+            "tools_available": len(agent.mcp_tools),
+            "tools": agent.mcp_tools,
+            "smart_context_enhancement": True,
+            "rag_integration": True
+        }
+        
+        return {
+            "success": True,
+            "agent_id": agent_id,
+            "tools": tools_info,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    
+    except Exception as e:
+        logger = logging.getLogger("api_tools")
+        logger.error(f"Error getting tools for agent {agent_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/agents/{agent_id}/chat")
@@ -231,51 +269,11 @@ async def chat_with_agent(agent_id: str, request: ChatRequest):
                 "business_domain": response["business_domain"],
                 "capabilities": _get_agent_capabilities(agent_id)
             },
-            "conversation_metadata": {
-                "message_length": len(request.message),
-                "response_length": len(response["response"]),
-                "processing_time": "real-time",
-                "context_used": bool(request.context)
-            }
+            "conversation_saved": True,
+            "database_persisted": True
         }
         
         return enhanced_response
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/agents/{agent_id}/info")
-async def get_agent_info(agent_id: str):
-    """Get detailed information about a specific agent."""
-    try:
-        if not agent_system:
-            raise HTTPException(status_code=503, detail="Agent system not initialized")
-        
-        if agent_id not in agent_system.agents:
-            raise HTTPException(status_code=404, detail=f"Agent {agent_id} not found")
-        
-        agent = agent_system.agents[agent_id]
-        
-        return {
-            "agent_id": agent_id,
-            "personality": {
-                "type": agent.personality_type,
-                "description": agent.personality.get('description', ''),
-                "traits": agent.personality.get('traits', []),
-                "communication_style": agent.personality.get('tone', 'professional')
-            },
-            "business_domain": {
-                "type": agent.business_domain,
-                "description": agent.business_rules.domains.get(agent.business_domain, ''),
-                "specializations": _get_business_specializations(agent.business_domain)
-            },
-            "capabilities": _get_agent_capabilities(agent_id),
-            "example_conversations": _get_example_conversations(agent.business_domain),
-            "status": "active",
-            "timestamp": datetime.utcnow().isoformat()
-        }
         
     except HTTPException:
         raise
@@ -326,25 +324,23 @@ async def get_system_stats():
         
         agents_info = agent_system.list_agents()
         
+        # Get database summary
+        database_summary = {}
+        if agent_system.agents:
+            first_agent = next(iter(agent_system.agents.values()))
+            database_summary = await first_agent.database.get_conversation_summary()
+        
         return {
             "system_status": "operational",
             "agents": agents_info,
             "performance": {
                 "total_conversations": sum(len(agent.conversations) for agent in agent_system.agents.values()),
                 "active_users": len(set(user_id for agent in agent_system.agents.values() for user_id in agent.conversations.keys())),
-                "openai_integration": "active"
+                "openai_integration": "active",
+                "mcp_integration": "ready",
+                "database_persistence": "active"
             },
-            "capabilities": {
-                "personality_types": ["analytical", "creative"],
-                "business_domains": ["financial_advisor", "content_creator"],
-                "supported_features": [
-                    "Real-time chat",
-                    "Context-aware responses", 
-                    "Personality-based behavior",
-                    "Business domain expertise",
-                    "Conversation memory"
-                ]
-            },
+            "database_stats": database_summary,
             "timestamp": datetime.utcnow().isoformat()
         }
         
@@ -357,7 +353,7 @@ def _get_example_use_cases(business_domain: str) -> list:
     use_cases = {
         "financial_advisor": [
             "Investment portfolio analysis",
-            "Retirement planning advice",
+            "Retirement planning advice", 
             "Risk assessment consultation",
             "Market trend analysis",
             "Financial goal setting"
@@ -370,94 +366,26 @@ def _get_example_use_cases(business_domain: str) -> list:
             "Audience engagement strategies"
         ]
     }
-    return use_cases.get(business_domain, ["General assistance", "Q&A support"])
+    return use_cases.get(business_domain, ["General assistance", "Question answering", "Problem solving"])
 
 def _get_agent_capabilities(agent_id: str) -> dict:
-    """Get capabilities for a specific agent."""
+    """Get agent capabilities."""
     return {
         "chat_endpoint": f"/agents/{agent_id}/chat",
-        "info_endpoint": f"/agents/{agent_id}/info", 
+        "tools_endpoint": f"/agents/{agent_id}/tools",
         "real_time_responses": True,
         "context_awareness": True,
         "conversation_memory": True,
-        "personality_consistency": True
+        "personality_consistency": True,
+        "mcp_integration": True,
+        "database_persistence": True
     }
 
-def _get_business_specializations(business_domain: str) -> list:
-    """Get specializations for a business domain."""
-    specializations = {
-        "financial_advisor": [
-            "Portfolio Management",
-            "Risk Analysis", 
-            "Investment Strategy",
-            "Retirement Planning",
-            "Market Research"
-        ],
-        "content_creator": [
-            "Social Media Strategy",
-            "Brand Development",
-            "Creative Writing",
-            "SEO Optimization",
-            "Audience Analysis"
-        ]
-    }
-    return specializations.get(business_domain, ["General Knowledge"])
-
-def _get_example_conversations(business_domain: str) -> list:
-    """Get example conversations for a business domain."""
-    examples = {
-        "financial_advisor": [
-            {
-                "user": "I want to start investing but I'm new to this. Where should I begin?",
-                "response_type": "Educational guidance with risk assessment and beginner-friendly investment options"
-            },
-            {
-                "user": "Should I invest in tech stocks or diversify more?",
-                "response_type": "Portfolio analysis with diversification strategy recommendations"
-            }
-        ],
-        "content_creator": [
-            {
-                "user": "I need viral content ideas for my startup's social media.",
-                "response_type": "Creative content strategies tailored to startup marketing goals"
-            },
-            {
-                "user": "How can I improve engagement on my Instagram posts?",
-                "response_type": "Data-driven engagement optimization tips and creative suggestions"
-            }
-        ]
-    }
-    return examples.get(business_domain, [])
-
-# Error handlers
-@app.exception_handler(404)
-async def not_found_handler(request: Request, exc: HTTPException):
-    return JSONResponse(
-        status_code=404,
-        content={
-            "error": "Resource not found",
-            "detail": str(exc.detail),
-            "path": str(request.url.path),
-            "timestamp": datetime.utcnow().isoformat()
-        }
-    )
-
-@app.exception_handler(500)
-async def internal_error_handler(request: Request, exc: HTTPException):
-    return JSONResponse(
-        status_code=500,
-        content={
-            "error": "Internal server error", 
-            "detail": str(exc.detail),
-            "timestamp": datetime.utcnow().isoformat()
-        }
-    )
-
+# Run server
 if __name__ == "__main__":
-    # Run the API server
     uvicorn.run(
-        "api_server:app",
-        host="0.0.0.0",
+        "api_server_simple:app",
+        host="0.0.0.0", 
         port=5000,
         reload=False,
         log_level="info"

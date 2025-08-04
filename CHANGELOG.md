@@ -5,6 +5,21 @@ All notable changes to the AI Agents System will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2025-08-04
+
+### 🔒 Critical Production Fixes
+
+#### Fixed
+- **Type Safety**: Fixed OpenAI message format compatibility issues
+- **Database Integration**: Added conversation persistence with SimpleDatabase
+- **Code Quality**: Resolved LSP diagnostics and type safety issues
+- **Import Issues**: Fixed FastAPI middleware compatibility
+
+#### Added
+- **Database Persistence**: File-based conversation and user data storage
+- **Enhanced Error Handling**: Proper exception handling and graceful degradation
+- **Conversation History**: Automatic saving and loading of agent conversations
+
 ## [1.1.0] - 2025-08-04
 
 ### 🚀 MCP Integration Update

@@ -68,8 +68,9 @@ class AgentFactory:
             if agent_id in self.agents:
                 raise AgentFactoryError(f"Agent {agent_id} already exists")
             
-            # Validate personality type
-            if not self.personality_manager.has_personality(personality_type):
+            # Validate personality type - check available personalities
+            available_personalities = self.personality_manager.get_available_personalities()
+            if personality_type not in available_personalities:
                 raise AgentFactoryError(f"Unknown personality type: {personality_type}")
             
             # Validate business domain
@@ -88,7 +89,9 @@ class AgentFactory:
                 business_domain=business_domain
             )
             
-            # Link OpenAI agent to main agent
+            # Link OpenAI agent to main agent - initialize optional field first
+            if not hasattr(agent, 'openai_agent'):
+                agent.openai_agent = None
             agent.openai_agent = openai_agent
             
             self.agents[agent_id] = agent
