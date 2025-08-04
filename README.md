@@ -62,7 +62,7 @@ The AI Agents System is a production-ready, multi-agent AI platform that creates
 
 3. **Start the System**:
    ```bash
-   python api_server.py
+   python api_server_simple.py
    ```
 
 4. **Verify Installation**:
