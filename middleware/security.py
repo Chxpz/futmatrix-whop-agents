@@ -6,7 +6,6 @@ import logging
 from collections import defaultdict
 from typing import Dict, Optional
 from fastapi import HTTPException, Request, Response
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from starlette.middleware.base import BaseHTTPMiddleware
 
 class ProductionSecurityMiddleware(BaseHTTPMiddleware):
@@ -21,16 +20,21 @@ class ProductionSecurityMiddleware(BaseHTTPMiddleware):
     
     async def dispatch(self, request: Request, call_next):
         """Process request with security checks."""
-        client_ip = request.client.host
+        client_ip = request.client.host if request.client else "unknown"
         current_time = time.time()
         
-        # Rate limiting
+        # Define public endpoints that don't require authentication
+        public_endpoints = {"/", "/health", "/docs", "/redoc", "/openapi.json", "/agents", "/system/stats"}
+        path = request.url.path
+        
+        # Rate limiting (apply to all endpoints)
         if self._check_rate_limit(client_ip, current_time):
             raise HTTPException(status_code=429, detail="Rate limit exceeded")
         
-        # API key validation (if configured)
-        if self.api_keys and not self._validate_api_key(request):
-            raise HTTPException(status_code=401, detail="Invalid or missing API key")
+        # API key validation (skip for public endpoints)
+        if self.api_keys and path not in public_endpoints and not path.startswith("/docs"):
+            if not self._validate_api_key(request):
+                raise HTTPException(status_code=401, detail="Invalid or missing API key")
         
         # Process request
         response = await call_next(request)
@@ -68,7 +72,7 @@ class ProductionSecurityMiddleware(BaseHTTPMiddleware):
             if scheme.lower() != "bearer":
                 return False
             
-            return api_key in self.api_keys
+            return self.api_keys is not None and api_key in self.api_keys
         except ValueError:
             return False
     
