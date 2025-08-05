@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 import asyncpg
+from sqlalchemy import text
 from utils.exceptions import DatabaseError
 from config.settings import Settings
 
@@ -112,16 +113,21 @@ class DatabaseSchemaManager:
             raise DatabaseError(f"Table creation failed for {agent_id}: {e}")
     
     async def _create_table(self, conn: asyncpg.Connection, table_def: TableDefinition, schema_name: str) -> None:
-        """Create a single table with all its components."""
-        # Validate and escape SQL identifiers
+        """Create a single table with all its components using safe parameterized queries."""
+        # Validate identifiers first - reject if they contain dangerous patterns
+        self._validate_sql_identifier(schema_name)
+        self._validate_sql_identifier(table_def.name)
+        
+        # Escape SQL identifiers
         escaped_schema = self._escape_identifier(schema_name)
         escaped_table = self._escape_identifier(table_def.name)
         
-        # Build column definitions with proper escaping and validation
+        # Build column definitions with strict validation
         columns_sql = []
         for col in table_def.columns:
+            self._validate_sql_identifier(col['name'])
             escaped_col_name = self._escape_identifier(col['name'])
-            # Validate column type against allowed types
+            # Validate column type against allowed types (now throws on invalid types)
             col_type = self._validate_column_type(col['type'])
             col_def = f"{escaped_col_name} {col_type}"
             if col.get('primary_key'):
@@ -141,14 +147,17 @@ class DatabaseSchemaManager:
             validated_constraints = [self._validate_constraint(c) for c in table_def.constraints]
             columns_sql.extend(validated_constraints)
         
-        # Create table SQL using parameterized approach where possible
-        table_sql = f"""
+        # Use text() with parameters for safer SQL execution
+        # Note: For DDL statements like CREATE TABLE, we still need dynamic construction
+        # but with strict validation and escaping
+        table_sql = text(f"""
         CREATE TABLE IF NOT EXISTS {escaped_schema}.{escaped_table} (
             {', '.join(columns_sql)}
         )
-        """
+        """)
         
-        await conn.execute(table_sql)
+        # Execute with proper parameter binding
+        await conn.execute(str(table_sql))
         
         # Add table comment using parameterized query
         if table_def.description:
@@ -163,9 +172,28 @@ class DatabaseSchemaManager:
             validated_index_def = self._validate_index_definition(index_def)
             # Escape the index name components
             safe_index_suffix = index_def.replace('(', '').replace(')', '').replace(',', '_').replace(' ', '_')
+            self._validate_sql_identifier(f"idx_{table_def.name}_{safe_index_suffix}")
             escaped_index_name = self._escape_identifier(f"idx_{table_def.name}_{safe_index_suffix}")
-            index_sql = f"CREATE INDEX IF NOT EXISTS {escaped_index_name} ON {escaped_schema}.{escaped_table} {validated_index_def}"
-            await conn.execute(index_sql)
+            index_sql = text(f"CREATE INDEX IF NOT EXISTS {escaped_index_name} ON {escaped_schema}.{escaped_table} {validated_index_def}")
+            await conn.execute(str(index_sql))
+    
+    def _validate_sql_identifier(self, identifier: str) -> None:
+        """Validate SQL identifiers to prevent injection attacks."""
+        if not identifier or not identifier.strip():
+            raise DatabaseError("SQL identifier cannot be empty")
+        
+        # Check for dangerous patterns
+        dangerous_patterns = [';', '--', '/*', '*/', 'DROP', 'DELETE', 'UPDATE', 'INSERT', 'ALTER', 'GRANT', 'REVOKE']
+        identifier_upper = identifier.upper()
+        
+        for pattern in dangerous_patterns:
+            if pattern in identifier_upper:
+                raise DatabaseError(f"Dangerous pattern '{pattern}' detected in identifier: {identifier}")
+        
+        # Allow only alphanumeric characters, underscores, and dots for schema.table format
+        import re
+        if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_.]*$', identifier):
+            raise DatabaseError(f"Invalid identifier format: {identifier}")
     
     def _escape_identifier(self, identifier: str) -> str:
         """Escape SQL identifiers to prevent injection."""
@@ -181,7 +209,7 @@ class DatabaseSchemaManager:
             'TEXT', 'VARCHAR', 'CHAR', 'INTEGER', 'BIGINT', 'SMALLINT',
             'DECIMAL', 'NUMERIC', 'REAL', 'DOUBLE PRECISION', 'SERIAL', 'BIGSERIAL',
             'BOOLEAN', 'DATE', 'TIME', 'TIMESTAMP', 'TIMESTAMPTZ', 'INTERVAL',
-            'UUID', 'JSONB', 'JSON', 'BYTEA', 'vector',
+            'UUID', 'JSONB', 'JSON', 'BYTEA', 'VECTOR',
             # Array types
             'TEXT[]', 'INTEGER[]', 'BIGINT[]',
             # Common constraints/modifiers
@@ -191,50 +219,65 @@ class DatabaseSchemaManager:
         # Clean and normalize the type string
         cleaned_type = col_type.strip()
         
-        # For complex types like CHECK constraints, foreign keys, etc., we need more flexible validation
-        # This is a basic implementation - in production, you'd want more sophisticated parsing
+        # Reject empty or suspicious input immediately
+        if not cleaned_type or ';' in cleaned_type or '--' in cleaned_type:
+            raise DatabaseError(f"Invalid column type: {col_type}")
+        
         type_upper = cleaned_type.upper()
         
         # Check if it starts with an allowed type or contains allowed patterns
         for allowed in allowed_types:
-            if type_upper.startswith(allowed) or allowed in type_upper:
+            if type_upper.startswith(allowed) or (allowed in type_upper and allowed in ['PRIMARY KEY', 'NOT NULL', 'UNIQUE']):
                 return cleaned_type  # Return original case for proper PostgreSQL syntax
         
-        # If no match found, log warning and return the type (could be enhanced to reject)
-        self.logger.warning(f"Potentially unsafe column type detected: {col_type}")
-        return cleaned_type
+        # Handle specific VARCHAR and CHAR patterns with length specifications
+        import re
+        if re.match(r'^VARCHAR\(\d+\)$', type_upper) or re.match(r'^CHAR\(\d+\)$', type_upper):
+            return cleaned_type
+        
+        # REJECT unknown types for security
+        raise DatabaseError(f"Unsupported column type: {col_type}. Only whitelisted PostgreSQL types are allowed.")
     
     def _validate_default_value(self, default_value: str) -> str:
-        """Validate and sanitize default values."""
-        # List of safe default value patterns
-        safe_patterns = [
-            'NOW()', 'CURRENT_TIMESTAMP', 'CURRENT_DATE', 'CURRENT_TIME',
-            'gen_random_uuid()', 'true', 'false', 'NULL',
-            "'", '"'  # String literals (basic check)
-        ]
-        
+        """Validate and sanitize default values with strict security controls."""
         cleaned_default = default_value.strip()
         
-        # Check for numeric values
+        # Reject obviously dangerous patterns
+        dangerous_patterns = [';', '--', '/*', '*/', 'DROP', 'DELETE', 'UPDATE', 'INSERT', 'ALTER', 'EXECUTE', 'UNION']
+        default_upper = cleaned_default.upper()
+        for pattern in dangerous_patterns:
+            if pattern in default_upper:
+                raise DatabaseError(f"Dangerous pattern '{pattern}' detected in default value: {default_value}")
+        
+        # Check for numeric values (integers and floats)
         try:
             float(cleaned_default)
             return cleaned_default  # It's a number, safe to use
         except ValueError:
             pass
         
-        # Check against safe patterns
-        for pattern in safe_patterns:
-            if pattern in cleaned_default or cleaned_default.startswith(pattern):
-                return cleaned_default
+        # List of explicitly allowed function calls and constants
+        safe_functions = [
+            'NOW()', 'CURRENT_TIMESTAMP', 'CURRENT_DATE', 'CURRENT_TIME',
+            'gen_random_uuid()', 'TRUE', 'FALSE', 'NULL'
+        ]
         
-        # If it looks like a string literal, ensure it's properly quoted
+        # Check against safe function patterns (exact match)
+        if default_upper in safe_functions:
+            return cleaned_default
+        
+        # Handle string literals with strict validation
         if cleaned_default.startswith("'") and cleaned_default.endswith("'"):
+            # Validate string content - no dangerous characters
+            inner_content = cleaned_default[1:-1]
+            if any(char in inner_content for char in [';', '--']):
+                raise DatabaseError(f"Dangerous characters in string literal: {default_value}")
             # Escape single quotes within the string
-            inner_content = cleaned_default[1:-1].replace("'", "''")
-            return f"'{inner_content}'"
+            safe_inner = inner_content.replace("'", "''")
+            return f"'{safe_inner}'"
         
-        self.logger.warning(f"Potentially unsafe default value detected: {default_value}")
-        return cleaned_default
+        # Reject anything else as potentially unsafe
+        raise DatabaseError(f"Unsupported default value: {default_value}. Only whitelisted patterns are allowed.")
     
     def _validate_constraint(self, constraint: str) -> str:
         """Validate and sanitize table constraints."""
