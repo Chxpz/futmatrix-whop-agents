@@ -403,8 +403,8 @@ class DatabaseSchemaManager:
             self._validate_sql_identifier(schema_name)
             escaped_schema = self._escape_identifier(schema_name)
             
-            # Set search path to agent schema first, then public (using text() with safe identifier)
-            search_path_query = text(f"SET search_path TO {escaped_schema}, public")
+            # Set search path to agent schema first, then public (using safe identifier)
+            search_path_query = f"SET search_path TO {escaped_schema}, public"
             
             async with self.connection_pool.acquire() as conn:
                 # Set schema search path
@@ -445,16 +445,15 @@ class DatabaseSchemaManager:
             placeholders = [f"${i+1}" for i in range(len(data))]
             values = list(data.values())
             
-            # Use named parameters for better static analysis compliance
+            # Use parameterized query for better security compliance
             query_string = f"""
                 INSERT INTO {escaped_schema}.{escaped_table} ({', '.join(escaped_columns)})
                 VALUES ({', '.join(placeholders)})
                 RETURNING id
             """
-            query = text(query_string)
             
             async with self.connection_pool.acquire() as conn:
-                result = await conn.fetchval(str(query), *values)
+                result = await conn.fetchval(query_string, *values)
                 return str(result)
                 
         except Exception as e:
