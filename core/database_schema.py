@@ -157,12 +157,14 @@ class DatabaseSchemaManager:
                 table_def.description
             )
         
-        # Create indexes with escaped identifiers
+        # Create indexes with validated and escaped components
         for index_def in table_def.indexes:
+            # Validate index definition to prevent SQL injection
+            validated_index_def = self._validate_index_definition(index_def)
             # Escape the index name components
             safe_index_suffix = index_def.replace('(', '').replace(')', '').replace(',', '_').replace(' ', '_')
             escaped_index_name = self._escape_identifier(f"idx_{table_def.name}_{safe_index_suffix}")
-            index_sql = f"CREATE INDEX IF NOT EXISTS {escaped_index_name} ON {escaped_schema}.{escaped_table} {index_def}"
+            index_sql = f"CREATE INDEX IF NOT EXISTS {escaped_index_name} ON {escaped_schema}.{escaped_table} {validated_index_def}"
             await conn.execute(index_sql)
     
     def _escape_identifier(self, identifier: str) -> str:
@@ -252,6 +254,52 @@ class DatabaseSchemaManager:
         
         self.logger.warning(f"Potentially unsafe constraint detected: {constraint}")
         return cleaned_constraint
+    
+    def _validate_index_definition(self, index_def: str) -> str:
+        """Validate and sanitize index definitions to prevent SQL injection."""
+        cleaned_index = index_def.strip()
+        
+        # Remove any potentially dangerous characters and patterns
+        # Allow only: letters, numbers, underscores, parentheses, commas, spaces, and dots
+        import re
+        if not re.match(r'^[\w\s(),.]+$', cleaned_index):
+            raise DatabaseError(f"Invalid characters in index definition: {index_def}")
+        
+        # Check for dangerous SQL keywords that shouldn't be in index definitions
+        # Use word boundaries to avoid false positives (e.g., "CREATE" in "created_at")
+        dangerous_keywords = [
+            r'\bDROP\b', r'\bDELETE\b', r'\bUPDATE\b', r'\bINSERT\b', r'\bALTER\b', 
+            r'\bTRUNCATE\b', r'\bGRANT\b', r'\bREVOKE\b', r'\bEXECUTE\b', 
+            r'\bUNION\b', r'\bSELECT\b', '--', ';', r'/\*', r'\*/'
+        ]
+        
+        index_upper = cleaned_index.upper()
+        for keyword_pattern in dangerous_keywords:
+            if re.search(keyword_pattern, index_upper):
+                raise DatabaseError(f"Forbidden SQL pattern detected in index definition: {index_def}")
+        
+        # Validate that it looks like a proper index definition
+        # Should be in format like: (column_name) or (col1, col2) or (func(column))
+        if not (cleaned_index.startswith('(') and cleaned_index.endswith(')')):
+            raise DatabaseError(f"Index definition must be enclosed in parentheses: {index_def}")
+        
+        # Extract content within parentheses and validate column names
+        content = cleaned_index[1:-1].strip()
+        if not content:
+            raise DatabaseError(f"Empty index definition: {index_def}")
+        
+        # Split by comma and validate each column/expression
+        columns = [col.strip() for col in content.split(',')]
+        for col in columns:
+            if not col:
+                raise DatabaseError(f"Empty column name in index definition: {index_def}")
+            # Basic validation - column names should be alphanumeric with underscores
+            if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', col):
+                # Allow function calls like LOWER(column_name) but be restrictive
+                if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*\([a-zA-Z_][a-zA-Z0-9_]*\)$', col):
+                    raise DatabaseError(f"Invalid column specification in index: {col}")
+        
+        return cleaned_index
     
     async def get_agent_schema_info(self, agent_id: str) -> Dict[str, Any]:
         """Get information about an agent's database schema."""
