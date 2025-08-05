@@ -1,5 +1,37 @@
 # Security Fixes Documentation
 
+## Kong.yml JWT Token Hardcoding Vulnerability Fix
+
+**Date**: August 5, 2025  
+**Severity**: Medium  
+**Status**: Fixed  
+
+### Issue Description
+Static code analysis detected hardcoded JWT tokens in `kong.yml` at line 63:
+- Supabase demo JWT tokens for "anon" and "service_role" users
+- Tokens stored directly in configuration file instead of environment variables
+
+### Security Impact
+- Source code exposure of authentication tokens  
+- Permanent storage in version control history
+- Risk if configuration is used with production tokens
+- Violation of security best practices
+
+### Fix Applied
+1. **Replaced hardcoded tokens** with environment variable references:
+   - `key: "${SUPABASE_ANON_KEY}"`
+   - `key: "${SUPABASE_SERVICE_ROLE_KEY}"`
+
+2. **Created environment template** (`.env.example`) with documentation
+
+### Required Actions for Deployment
+Before using Kong configuration:
+1. Set `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` environment variables
+2. Get these keys from your Supabase project's API settings
+3. Ensure Kong can access these environment variables at runtime
+
+---
+
 ## JWT Token Hardcoding Vulnerability Fix
 
 **Date**: August 5, 2025  
