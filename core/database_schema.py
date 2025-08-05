@@ -396,12 +396,16 @@ class DatabaseSchemaManager:
             
             schema_name = self.agent_schemas[agent_id]["name"]
             
-            # Set search path to agent schema first, then public
-            search_path_query = f"SET search_path TO {schema_name}, public"
+            # Validate and escape schema name for safety
+            self._validate_sql_identifier(schema_name)
+            escaped_schema = self._escape_identifier(schema_name)
+            
+            # Set search path to agent schema first, then public (using text() with safe identifier)
+            search_path_query = text(f"SET search_path TO {escaped_schema}, public")
             
             async with self.connection_pool.acquire() as conn:
                 # Set schema search path
-                await conn.execute(search_path_query)
+                await conn.execute(str(search_path_query))
                 
                 # Execute the query
                 if params:
@@ -423,19 +427,29 @@ class DatabaseSchemaManager:
             
             schema_name = self.agent_schemas[agent_id]["name"]
             
-            # Build insert query
-            columns = list(data.keys())
-            placeholders = [f"${i+1}" for i in range(len(columns))]
+            # Validate identifiers for safety
+            self._validate_sql_identifier(schema_name)
+            self._validate_sql_identifier(table_name)
+            for column in data.keys():
+                self._validate_sql_identifier(column)
+            
+            # Escape identifiers
+            escaped_schema = self._escape_identifier(schema_name)
+            escaped_table = self._escape_identifier(table_name)
+            escaped_columns = [self._escape_identifier(col) for col in data.keys()]
+            
+            # Build insert query with escaped identifiers
+            placeholders = [f"${i+1}" for i in range(len(data))]
             values = list(data.values())
             
-            query = f"""
-                INSERT INTO {schema_name}.{table_name} ({', '.join(columns)})
+            query = text(f"""
+                INSERT INTO {escaped_schema}.{escaped_table} ({', '.join(escaped_columns)})
                 VALUES ({', '.join(placeholders)})
                 RETURNING id
-            """
+            """)
             
             async with self.connection_pool.acquire() as conn:
-                result = await conn.fetchval(query, *values)
+                result = await conn.fetchval(str(query), *values)
                 return str(result)
                 
         except Exception as e:
@@ -466,9 +480,14 @@ class DatabaseSchemaManager:
                     total_rows = 0
                     for table in tables:
                         try:
-                            row_count = await conn.fetchval(
-                                f"SELECT COUNT(*) FROM {schema_name}.{table['table_name']}"
-                            )
+                            # Validate and escape identifiers for safety
+                            self._validate_sql_identifier(schema_name)
+                            self._validate_sql_identifier(table['table_name'])
+                            escaped_schema = self._escape_identifier(schema_name)
+                            escaped_table = self._escape_identifier(table['table_name'])
+                            
+                            count_query = text(f"SELECT COUNT(*) FROM {escaped_schema}.{escaped_table}")
+                            row_count = await conn.fetchval(str(count_query))
                             total_rows += row_count
                         except Exception:
                             # Skip if table doesn't exist or is inaccessible
