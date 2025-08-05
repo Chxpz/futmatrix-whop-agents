@@ -113,10 +113,16 @@ class DatabaseSchemaManager:
     
     async def _create_table(self, conn: asyncpg.Connection, table_def: TableDefinition, schema_name: str) -> None:
         """Create a single table with all its components."""
-        # Build column definitions
+        # Validate and escape SQL identifiers
+        escaped_schema = self._escape_identifier(schema_name)
+        escaped_table = self._escape_identifier(table_def.name)
+        
+        # Build column definitions with proper escaping
         columns_sql = []
         for col in table_def.columns:
-            col_def = f"{col['name']} {col['type']}"
+            escaped_col_name = self._escape_identifier(col['name'])
+            # Note: col['type'] should be validated against allowed types in production
+            col_def = f"{escaped_col_name} {col['type']}"
             if col.get('primary_key'):
                 col_def += " PRIMARY KEY"
             if col.get('not_null'):
@@ -127,31 +133,39 @@ class DatabaseSchemaManager:
                 col_def += " UNIQUE"
             columns_sql.append(col_def)
         
-        # Add constraints
+        # Add constraints (these should be validated in production)
         if table_def.constraints:
             columns_sql.extend(table_def.constraints)
         
-        # Create table SQL
+        # Create table SQL with escaped identifiers
         table_sql = f"""
-        CREATE TABLE IF NOT EXISTS {schema_name}.{table_def.name} (
+        CREATE TABLE IF NOT EXISTS {escaped_schema}.{escaped_table} (
             {', '.join(columns_sql)}
         )
         """
         
         await conn.execute(table_sql)
         
-        # Add table comment
+        # Add table comment using parameterized query
         if table_def.description:
             await conn.execute(
-                f"COMMENT ON TABLE {schema_name}.{table_def.name} IS $1",
+                f"COMMENT ON TABLE {escaped_schema}.{escaped_table} IS $1",
                 table_def.description
             )
         
-        # Create indexes
+        # Create indexes with escaped identifiers
         for index_def in table_def.indexes:
-            index_name = f"idx_{table_def.name}_{index_def.replace('(', '').replace(')', '').replace(',', '_').replace(' ', '_')}"
-            index_sql = f"CREATE INDEX IF NOT EXISTS {index_name} ON {schema_name}.{table_def.name} {index_def}"
+            # Escape the index name components
+            safe_index_suffix = index_def.replace('(', '').replace(')', '').replace(',', '_').replace(' ', '_')
+            escaped_index_name = self._escape_identifier(f"idx_{table_def.name}_{safe_index_suffix}")
+            index_sql = f"CREATE INDEX IF NOT EXISTS {escaped_index_name} ON {escaped_schema}.{escaped_table} {index_def}"
             await conn.execute(index_sql)
+    
+    def _escape_identifier(self, identifier: str) -> str:
+        """Escape SQL identifiers to prevent injection."""
+        # Remove or replace dangerous characters and wrap in quotes
+        safe_identifier = identifier.replace('"', '""')  # Escape existing quotes
+        return f'"{safe_identifier}"'
     
     async def get_agent_schema_info(self, agent_id: str) -> Dict[str, Any]:
         """Get information about an agent's database schema."""
