@@ -60,6 +60,17 @@ The AI Agents System is a production-ready, multi-agent AI platform that creates
    OPENAI_API_KEY=your_openai_api_key_here
    ```
 
+   **For Docker Compose deployment**, create a `.env` file from the template:
+   ```bash
+   cp .env.example .env
+   # Edit .env file with your actual keys
+   ```
+   
+   Required environment variables for Docker:
+   - `SUPABASE_ANON_KEY`: Your Supabase anonymous key
+   - `SUPABASE_SERVICE_KEY`: Your Supabase service role key  
+   - `PGRST_JWT_SECRET`: JWT secret for PostgREST (32+ characters)
+
 3. **Start the System**:
    ```bash
    python api_server_simple.py
