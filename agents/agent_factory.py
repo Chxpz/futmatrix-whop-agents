@@ -21,7 +21,7 @@ class Agent:
         self.personality_type = personality_type
         self.business_domain = business_domain
         self.is_active = False
-        self.openai_agent = None
+        self.openai_agent: Optional[OpenAIAgent] = None
     
     async def initialize(self):
         """Initialize the agent."""
@@ -89,9 +89,7 @@ class AgentFactory:
                 business_domain=business_domain
             )
             
-            # Link OpenAI agent to main agent - initialize optional field first
-            if not hasattr(agent, 'openai_agent'):
-                agent.openai_agent = None
+            # Link OpenAI agent to main agent
             agent.openai_agent = openai_agent
             
             self.agents[agent_id] = agent

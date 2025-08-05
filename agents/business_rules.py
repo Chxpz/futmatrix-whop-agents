@@ -15,7 +15,9 @@ class BusinessRules:
             "financial_advisor": "Financial advisory and investment management",
             "content_creator": "Content creation and marketing assistance", 
             "technical_support": "Technical support and troubleshooting",
-            "general_assistant": "General purpose assistance"
+            "general_assistant": "General purpose assistance",
+            "sports_coaching": "Sports performance coaching and training optimization",
+            "competitive_gaming": "Competitive gaming matchmaking and strategic analysis"
         }
     
     def has_domain(self, domain: str) -> bool:
@@ -37,7 +39,9 @@ class BusinessRuleEngine:
             "financial_advisor": self._process_financial_advisor_rules,
             "content_creator": self._process_content_creator_rules,
             "technical_support": self._process_technical_support_rules,
-            "general_assistant": self._process_general_assistant_rules
+            "general_assistant": self._process_general_assistant_rules,
+            "sports_coaching": self._process_sports_coaching_rules,
+            "competitive_gaming": self._process_competitive_gaming_rules
         }
     
     async def process(
@@ -415,6 +419,125 @@ class BusinessRuleEngine:
         
         return keywords[:5]  # Return top 5 potential keywords
     
+    # Helper methods for Futmatrix agents
+    
+    def _analyze_player_profile(self, prompt: str, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Analyze player profile for coaching."""
+        return {
+            "skill_level": "intermediate",
+            "experience": "competitive",
+            "focus_areas": ["strategy", "execution", "mental_game"],
+            "improvement_potential": "high"
+        }
+    
+    def _analyze_performance_data(self, prompt: str) -> Dict[str, Any]:
+        """Analyze performance data from prompt."""
+        return {
+            "recent_performance": "improving", 
+            "consistency": "moderate",
+            "key_strengths": ["tactical_awareness", "skill_execution"],
+            "improvement_areas": ["consistency", "pressure_management"]
+        }
+    
+    def _assess_skill_areas(self, prompt: str) -> Dict[str, Any]:
+        """Assess different skill areas."""
+        return {
+            "technical_skills": {"rating": 7, "trend": "improving"},
+            "tactical_awareness": {"rating": 8, "trend": "stable"}, 
+            "mental_game": {"rating": 6, "trend": "needs_work"},
+            "physical_fitness": {"rating": 7, "trend": "stable"}
+        }
+    
+    def _identify_coaching_focus(self, prompt: str) -> str:
+        """Identify main coaching focus area."""
+        focus_keywords = {
+            "performance_improvement": ["performance", "improve", "better"],
+            "skill_development": ["skill", "technique", "ability"],
+            "strategic_planning": ["strategy", "tactics", "plan"],
+            "mental_preparation": ["mental", "mindset", "confidence"]
+        }
+        
+        for focus_area, keywords in focus_keywords.items():
+            if any(keyword in prompt.lower() for keyword in keywords):
+                return focus_area
+        
+        return "general_improvement"
+    
+    def _generate_performance_targets(self, detected_keywords: List[str]) -> List[Dict[str, Any]]:
+        """Generate performance targets based on detected areas."""
+        targets = []
+        
+        if "performance" in detected_keywords:
+            targets.append({
+                "metric": "overall_performance_rating",
+                "current": 7.2,
+                "target": 8.0,
+                "timeframe": "4_weeks"
+            })
+        
+        if "accuracy" in detected_keywords:
+            targets.append({
+                "metric": "skill_accuracy",
+                "current": 75,
+                "target": 85,
+                "timeframe": "2_weeks"
+            })
+        
+        return targets
+    
+    def _analyze_competitive_profile(self, prompt: str, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Analyze competitive gaming profile."""
+        return {
+            "competitive_level": "advanced",
+            "preferred_match_types": ["ranked", "tournament"],
+            "playstyle": "strategic",
+            "competitive_goals": "ranking_improvement"
+        }
+    
+    def _analyze_matchmaking_request(self, prompt: str) -> Dict[str, Any]:
+        """Analyze matchmaking request details."""
+        return {
+            "match_type": "competitive", 
+            "difficulty_preference": "challenging",
+            "time_commitment": "medium",
+            "skill_focus": "balanced"
+        }
+    
+    def _extract_opponent_preferences(self, prompt: str) -> Dict[str, Any]:
+        """Extract opponent preferences from prompt."""
+        return {
+            "skill_level": "similar_or_higher",
+            "playstyle_variety": "diverse",
+            "competitive_intensity": "high",
+            "learning_opportunity": "prioritized"
+        }
+    
+    def _generate_opponent_suggestions(self) -> List[Dict[str, Any]]:
+        """Generate sample opponent suggestions."""
+        return [
+            {
+                "opponent_id": "competitive_strategist_001",
+                "skill_level": "expert",
+                "playstyle": "tactical",
+                "match_quality": 9.1,
+                "learning_value": "high"
+            },
+            {
+                "opponent_id": "skilled_challenger_002", 
+                "skill_level": "advanced",
+                "playstyle": "aggressive",
+                "match_quality": 8.7,
+                "learning_value": "medium"
+            },
+            {
+                "opponent_id": "technical_master_003",
+                "skill_level": "expert",
+                "playstyle": "technical",
+                "match_quality": 9.3,
+                "learning_value": "very_high"
+            }
+        ]
+    
     def _classify_technical_issue(self, prompt: str) -> str:
         """Classify the type of technical issue."""
         issue_keywords = {
@@ -429,6 +552,147 @@ class BusinessRuleEngine:
                 return issue_type
         
         return "general"
+    
+    async def _process_sports_coaching_rules(
+        self,
+        prompt: str,
+        context: Dict[str, Any],
+        user_id: str
+    ) -> Dict[str, Any]:
+        """Process sports coaching specific business rules."""
+        try:
+            result = {
+                "category": "sports_coaching",
+                "user_analysis": self._analyze_player_profile(prompt, context),
+                "performance_analysis": self._analyze_performance_data(prompt),
+                "skill_assessment": self._assess_skill_areas(prompt),
+                "training_recommendations": [],
+                "coaching_focus": self._identify_coaching_focus(prompt),
+                "improvement_plan": {},
+                "performance_targets": []
+            }
+            
+            # Analyze coaching keywords
+            coaching_keywords = [
+                "performance", "training", "improvement", "skill", "practice",
+                "technique", "strategy", "fitness", "stamina", "speed",
+                "accuracy", "consistency", "mental game", "competition"
+            ]
+            
+            detected_keywords = [kw for kw in coaching_keywords if kw.lower() in prompt.lower()]
+            result["detected_topics"] = detected_keywords
+            
+            # Generate specific coaching recommendations
+            if "performance" in detected_keywords or "improvement" in detected_keywords:
+                result["training_recommendations"].extend([
+                    {
+                        "type": "performance_analysis",
+                        "priority": "high", 
+                        "message": "Analyze recent match data to identify performance patterns"
+                    },
+                    {
+                        "type": "skill_development",
+                        "priority": "high",
+                        "message": "Focus on top 3 skill areas showing most improvement potential"
+                    }
+                ])
+            
+            if "strategy" in detected_keywords or "technique" in detected_keywords:
+                result["training_recommendations"].append({
+                    "type": "tactical_training",
+                    "priority": "medium",
+                    "message": "Develop advanced tactical awareness and decision-making skills"
+                })
+            
+            if "mental" in detected_keywords or "competition" in detected_keywords:
+                result["training_recommendations"].append({
+                    "type": "mental_preparation",
+                    "priority": "medium", 
+                    "message": "Build competitive mindset and pressure management techniques"
+                })
+            
+            # Set performance targets based on detected areas
+            result["performance_targets"] = self._generate_performance_targets(detected_keywords)
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Error in sports coaching rules: {e}")
+            return {"category": "sports_coaching", "error": str(e)}
+    
+    async def _process_competitive_gaming_rules(
+        self,
+        prompt: str,
+        context: Dict[str, Any],
+        user_id: str
+    ) -> Dict[str, Any]:
+        """Process competitive gaming specific business rules."""
+        try:
+            result = {
+                "category": "competitive_gaming",
+                "user_analysis": self._analyze_competitive_profile(prompt, context),
+                "matchmaking_analysis": self._analyze_matchmaking_request(prompt),
+                "opponent_preferences": self._extract_opponent_preferences(prompt),
+                "skill_matching": {"enabled": True, "tolerance": "balanced"},
+                "competitive_insights": [],
+                "suggested_opponents": [],
+                "match_preparation": {}
+            }
+            
+            # Analyze competitive gaming keywords
+            gaming_keywords = [
+                "opponent", "match", "challenge", "compete", "rival", "ranking",
+                "skill level", "tournament", "league", "championship", "victory",
+                "strategy", "tactics", "meta", "gameplay", "esports"
+            ]
+            
+            detected_keywords = [kw for kw in gaming_keywords if kw.lower() in prompt.lower()]
+            result["detected_topics"] = detected_keywords
+            
+            # Generate competitive insights based on detected topics
+            if "opponent" in detected_keywords or "match" in detected_keywords:
+                result["competitive_insights"].extend([
+                    {
+                        "type": "matchmaking_strategy",
+                        "priority": "high",
+                        "message": "Analyze player skill metrics for optimal opponent matching"
+                    },
+                    {
+                        "type": "competitive_balance",
+                        "priority": "high", 
+                        "message": "Balance challenge level to promote skill development"
+                    }
+                ])
+            
+            if "strategy" in detected_keywords or "tactics" in detected_keywords:
+                result["competitive_insights"].append({
+                    "type": "tactical_analysis", 
+                    "priority": "medium",
+                    "message": "Provide strategic insights for different opponent types"
+                })
+            
+            if "ranking" in detected_keywords or "tournament" in detected_keywords:
+                result["competitive_insights"].append({
+                    "type": "competitive_progression",
+                    "priority": "medium",
+                    "message": "Focus on matches that improve competitive ranking"
+                })
+            
+            # Generate sample opponent suggestions for demo
+            result["suggested_opponents"] = self._generate_opponent_suggestions()
+            
+            # Set match preparation advice
+            result["match_preparation"] = {
+                "mental_preparation": "Focus on competitive mindset and staying calm under pressure",
+                "strategic_review": "Review opponent's typical strategies and weaknesses",
+                "skill_warmup": "Complete skill-specific warm-up routine before matches"
+            }
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Error in competitive gaming rules: {e}")
+            return {"category": "competitive_gaming", "error": str(e)}
     
     def _assess_technical_urgency(self, prompt: str) -> str:
         """Assess the urgency level of a technical issue."""

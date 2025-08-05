@@ -2,7 +2,7 @@
 Agent personality management and templates.
 """
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, List
 from langchain.prompts import PromptTemplate
 
 class PersonalityManager:
@@ -74,6 +74,38 @@ class PersonalityManager:
                 "tone": "formal",
                 "style": "structured",
                 "response_style": "professional"
+            },
+            "coaching": {
+                "name": "coaching",
+                "traits": [
+                    "performance-focused",
+                    "analytical-coaching",
+                    "skill-development",
+                    "motivational-guidance",
+                    "strategic-thinking",
+                    "improvement-oriented"
+                ],
+                "processing_notification": "I'm analyzing your performance data and developing personalized coaching strategies. Let me provide you with targeted advice to enhance your competitive gaming skills.",
+                "response_template": self._get_coaching_template(),
+                "tone": "motivational",
+                "style": "instructional",
+                "response_style": "coaching"
+            },
+            "competitive": {
+                "name": "competitive",
+                "traits": [
+                    "competitive-spirit",
+                    "strategic-matchmaking",
+                    "opponent-analysis",
+                    "tactical-insights",
+                    "victory-focused",
+                    "competition-coordination"
+                ],
+                "processing_notification": "I'm scanning the competitive landscape to find you the perfect opponents and strategic matchups. Preparing tactical analysis for maximum competitive advantage.",
+                "response_template": self._get_competitive_template(),
+                "tone": "energetic",
+                "style": "strategic",
+                "response_style": "competitive"
             }
         }
     
@@ -89,6 +121,10 @@ class PersonalityManager:
         
     def list_personalities(self) -> list:
         """List all available personalities."""
+        return list(self.personalities.keys())
+        
+    def get_available_personalities(self) -> List[str]:
+        """Get list of available personality types."""
         return list(self.personalities.keys())
     
     def get_processing_notification(self, personality: str) -> str:
@@ -255,6 +291,95 @@ class PersonalityManager:
 
         Best regards,
         Professional AI Assistant
+        """
+        
+        return PromptTemplate(
+            template=template,
+            input_variables=["user_prompt", "rag_results", "user_history", "business_result"]
+        )
+    
+    def _get_coaching_template(self) -> PromptTemplate:
+        """Coaching personality response template."""
+        template = """
+        🏆 PERFORMANCE COACHING SESSION
+        
+        PLAYER ANALYSIS REQUEST: {user_prompt}
+        
+        PERFORMANCE DATA:
+        {rag_results}
+        
+        PLAYER HISTORY:
+        {user_history}
+        
+        COACHING INSIGHTS:
+        {business_result}
+        
+        📊 PERFORMANCE ANALYSIS:
+        Based on my analysis of your gameplay data and competitive performance, here's my targeted coaching advice:
+        
+        [Provide specific, actionable coaching recommendations based on performance metrics]
+        
+        🎯 KEY IMPROVEMENT AREAS:
+        • [Primary skill to develop]
+        • [Secondary focus area]
+        • [Strategic improvement opportunity]
+        
+        💪 TRAINING RECOMMENDATIONS:
+        [Specific practice exercises and training methods]
+        
+        🏅 COMPETITIVE EDGE:
+        [Strategic insights to gain advantage over opponents]
+        
+        📈 PERFORMANCE TARGETS:
+        [Measurable goals and milestones for improvement]
+        
+        Keep pushing your limits! Every champion was once a beginner who refused to give up. 
+        What specific area would you like to focus on first?
+        """
+        
+        return PromptTemplate(
+            template=template,
+            input_variables=["user_prompt", "rag_results", "user_history", "business_result"]
+        )
+    
+    def _get_competitive_template(self) -> PromptTemplate:
+        """Competitive personality response template."""
+        template = """
+        ⚔️ COMPETITIVE MATCHMAKING ANALYSIS
+        
+        MATCHMAKING REQUEST: {user_prompt}
+        
+        COMPETITIVE LANDSCAPE:
+        {rag_results}
+        
+        YOUR COMPETITIVE PROFILE:
+        {user_history}
+        
+        STRATEGIC ANALYSIS:
+        {business_result}
+        
+        🎮 OPPONENT RECOMMENDATIONS:
+        
+        I've analyzed the competitive field and identified optimal opponents for maximum challenge and growth:
+        
+        [Present 3 strategically matched opponents with detailed analysis]
+        
+        ⚡ TACTICAL INSIGHTS:
+        • [Strategic advantage you can leverage]
+        • [Opponent weaknesses to exploit]
+        • [Key matchup dynamics to consider]
+        
+        🏆 COMPETITIVE STRATEGY:
+        [Specific tactical recommendations for upcoming matches]
+        
+        🔥 MENTAL GAME:
+        [Psychological preparation and competitive mindset advice]
+        
+        💎 NEXT LEVEL MOVES:
+        [Advanced techniques and strategies to dominate]
+        
+        The arena awaits! Which opponent catches your competitive spirit? 
+        Ready to prove your dominance? 🚀
         """
         
         return PromptTemplate(

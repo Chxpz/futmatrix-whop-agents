@@ -1,24 +1,20 @@
+#!/usr/bin/env python3
 """
 Futmatrix AI Agents API Server
-Production-ready FastAPI server for Coach and Rivalizer agents
+Coach and Rivalizer agents for EA Sports FC 25 competitive gaming platform
+Built using the existing AI Agents Factory system
 """
 import logging
-import os
 import asyncio
-from typing import Dict, Any, Optional
 from datetime import datetime
-
-from fastapi import FastAPI, HTTPException, Request, Depends, status
-from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from typing import Dict, Any
 import uvicorn
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
-from agents.futmatrix_agents import FutmatrixAgentManager
-from middleware.security import ProductionSecurityMiddleware, APIKeyManager
-from utils.monitoring import SystemMonitor, APIMetrics
 from config.settings import Settings
-
+from agents.agent_factory import AgentFactory
 
 # Configure logging
 logging.basicConfig(
@@ -26,15 +22,32 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 
-logger = logging.getLogger("futmatrix_api")
+# Pydantic models for API requests
+class CoachingRequest(BaseModel):
+    user_id: str
+    message: str
+    focus_areas: list[str] = ["finishing", "defending", "strategy"]
 
-# Initialize FastAPI app
+class MatchmakingRequest(BaseModel):
+    user_id: str
+    message: str
+    skill_level: str = "intermediate"
+    playstyle: str = "balanced"
+
+class AgentResponse(BaseModel):
+    success: bool
+    agent_id: str
+    user_id: str
+    response: str
+    tokens_used: int = 0
+    timestamp: str
+    error: str = None
+
+# Global variables
 app = FastAPI(
     title="Futmatrix AI Agents API",
-    description="LangGraph-based Coach and Rivalizer agents for competitive EA Sports FC 25",
-    version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redocs"
+    description="Coach and Rivalizer agents for EA Sports FC 25 competitive gaming",
+    version="1.0.0"
 )
 
 # CORS middleware
@@ -46,377 +59,276 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Global variables
-agent_manager: Optional[FutmatrixAgentManager] = None
-system_monitor = SystemMonitor()
-api_metrics = APIMetrics()
+# Global factory instance
+agent_factory: AgentFactory = None
 
-# Add production security middleware
-app.add_middleware(
-    ProductionSecurityMiddleware,
-    api_keys=APIKeyManager.get_production_keys(),
-    rate_limit=int(os.getenv("RATE_LIMIT", "100"))
-)
-
-
-# Pydantic models
-class CoachingRequest(BaseModel):
-    user_id: str = Field(..., description="Unique user identifier")
-    message: Optional[str] = Field(None, description="Optional message or specific request")
-
-
-class MatchmakingRequest(BaseModel):
-    user_id: str = Field(..., description="Unique user identifier")
-    message: Optional[str] = Field(None, description="Optional matchmaking preferences")
-
-
-class AgentResponse(BaseModel):
-    success: bool
-    agent_type: str
-    user_id: str
-    response: Optional[str] = None
-    error: Optional[str] = None
-    timestamp: str
-    action_taken: Optional[bool] = None
-    additional_data: Optional[Dict[str, Any]] = None
-
-
-# Startup and shutdown events
 @app.on_event("startup")
 async def startup_event():
-    """Initialize the Futmatrix agent system."""
-    global agent_manager
+    """Initialize the Futmatrix agents on startup."""
+    global agent_factory
     
-    logger.info("Starting Futmatrix AI Agents API Server v1.0.0")
+    logger = logging.getLogger("futmatrix_api")
+    logger.info("🎮 Starting Futmatrix AI Agents API Server")
     
     try:
-        # Load settings
+        # Initialize settings and factory
         settings = Settings()
+        agent_factory = AgentFactory(settings)
         
-        # Validate required environment variables
-        required_vars = ["OPENAI_API_KEY", "SUPABASE_URL", "SUPABASE_ANON_KEY"]
-        missing_vars = [var for var in required_vars if not os.getenv(var)]
+        # Initialize the factory
+        await agent_factory.initialize()
+        logger.info("✅ Agent factory initialized")
         
-        if missing_vars:
-            raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
-        
-        # Initialize agent manager
-        agent_manager = FutmatrixAgentManager(
-            openai_api_key=os.getenv("OPENAI_API_KEY"),
-            supabase_url=os.getenv("SUPABASE_URL"),
-            supabase_key=os.getenv("SUPABASE_ANON_KEY")
+        # Create Futmatrix agents
+        logger.info("🏆 Creating Coach Agent...")
+        coach_agent = agent_factory.create_agent(
+            agent_id="futmatrix_coach",
+            personality_type="coaching", 
+            business_domain="sports_coaching"
         )
+        logger.info(f"✅ Coach Agent created: {coach_agent.agent_id}")
         
-        logger.info("Futmatrix Agent Manager initialized successfully")
-        logger.info("Features: LangGraph Agents, Supabase Integration, Performance Analysis, Matchmaking")
-        logger.info("Security: API key authentication, Rate limiting, Production middleware")
+        logger.info("⚔️ Creating Rivalizer Agent...")
+        rivalizer_agent = agent_factory.create_agent(
+            agent_id="futmatrix_rivalizer",
+            personality_type="competitive",
+            business_domain="competitive_gaming"
+        )
+        logger.info(f"✅ Rivalizer Agent created: {rivalizer_agent.agent_id}")
         
-        # Log available endpoints
-        logger.info("Available endpoints:")
-        logger.info("  GET  /                     - System info")
-        logger.info("  GET  /health               - Health check")
-        logger.info("  GET  /agents               - Agent information")
-        logger.info("  POST /coach/analyze        - Coaching analysis (requires API key)")
-        logger.info("  POST /rivalizer/matchmake  - Find match opponents (requires API key)")
-        logger.info("  GET  /docs                 - API documentation")
-        logger.info("  GET  /system/stats         - System metrics")
+        # Initialize and start agents
+        await agent_factory.initialize_all_agents()
+        await agent_factory.start_all_agents()
         
-        logger.info("Futmatrix AI Agents API Server ready!")
+        logger.info("🚀 Futmatrix AI Agents API Server ready!")
+        logger.info("📋 Available endpoints:")
+        logger.info("   GET  /                     - System info")
+        logger.info("   GET  /health               - Health check")
+        logger.info("   GET  /agents               - List agents")
+        logger.info("   POST /coach/analyze        - Get coaching analysis")
+        logger.info("   POST /rivalizer/match      - Find match opponents")
+        logger.info("   GET  /docs                 - API documentation")
         
     except Exception as e:
-        logger.error(f"Startup failed: {e}")
+        logger.error(f"❌ Failed to initialize Futmatrix agents: {e}")
         raise
-
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    """Cleanup on server shutdown."""
-    logger.info("Shutting down Futmatrix AI Agents API Server")
+    """Clean up agents on shutdown."""
+    global agent_factory
+    
+    logger = logging.getLogger("futmatrix_api")
+    logger.info("🛑 Shutting down Futmatrix AI Agents API Server")
+    
+    if agent_factory:
+        try:
+            await agent_factory.stop_all_agents()
+            logger.info("✅ All agents stopped successfully")
+        except Exception as e:
+            logger.error(f"⚠️ Error during shutdown: {e}")
 
-
-# Dependency for checking agent manager
-async def get_agent_manager() -> FutmatrixAgentManager:
-    """Dependency for getting the agent manager."""
-    if not agent_manager:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Agent manager not initialized"
-        )
-    return agent_manager
-
-
-# Public endpoints (no authentication required)
-@app.get("/", response_model=Dict[str, Any])
+@app.get("/")
 async def root():
     """Get system information."""
     return {
         "service": "Futmatrix AI Agents API",
         "version": "1.0.0",
         "platform": "EA Sports FC 25 Competitive Gaming",
-        "agents": ["Coach", "Rivalizer"],
-        "powered_by": "LangGraph + OpenAI GPT-4o",
-        "features": [
-            "Performance analysis and coaching",
-            "Intelligent matchmaking",
-            "Training plan management",
-            "Competitive match coordination"
+        "description": "Coach and Rivalizer agents for performance optimization and competitive matchmaking",
+        "agents": [
+            {
+                "agent_id": "futmatrix_coach",
+                "name": "Coach Agent",
+                "description": "Performance analysis and training optimization",
+                "personality": "coaching",
+                "specialization": "sports_coaching"
+            },
+            {
+                "agent_id": "futmatrix_rivalizer", 
+                "name": "Rivalizer Agent",
+                "description": "Competitive matchmaking and strategic analysis",
+                "personality": "competitive",
+                "specialization": "competitive_gaming"
+            }
         ],
-        "status": "operational",
+        "endpoints": {
+            "coach_analysis": "/coach/analyze",
+            "rivalizer_matching": "/rivalizer/match",
+            "health_check": "/health",
+            "documentation": "/docs"
+        },
+        "powered_by": "AI Agents Factory + OpenAI GPT-4o",
         "timestamp": datetime.utcnow().isoformat()
     }
 
-
-@app.get("/health", response_model=Dict[str, Any])
+@app.get("/health")
 async def health_check():
-    """Comprehensive health check."""
+    """Check system health."""
+    global agent_factory
+    
+    if not agent_factory:
+        raise HTTPException(status_code=503, detail="Agent factory not initialized")
+    
     try:
-        # System metrics
-        system_metrics = system_monitor.get_system_metrics()
-        
-        # Check agent manager status
-        agent_status = "operational" if agent_manager else "unavailable"
-        
-        # Check environment variables
-        env_check = {
-            "openai_api_key": bool(os.getenv("OPENAI_API_KEY")),
-            "supabase_url": bool(os.getenv("SUPABASE_URL")),
-            "supabase_key": bool(os.getenv("SUPABASE_ANON_KEY"))
-        }
-        
-        health_status = {
-            "status": "healthy",
-            "timestamp": datetime.utcnow().isoformat(),
-            "agents": {
-                "coach": "operational",
-                "rivalizer": "operational",
-                "manager_status": agent_status
-            },
-            "integrations": {
-                "openai": "active" if env_check["openai_api_key"] else "inactive",
-                "supabase": "active" if env_check["supabase_url"] and env_check["supabase_key"] else "inactive",
-                "langgraph": "active"
-            },
-            "system_metrics": system_metrics,
-            "environment": {
-                "required_vars_present": all(env_check.values()),
-                "rate_limiting": "active",
-                "security_middleware": "active"
-            }
-        }
-        
-        return health_status
-        
-    except Exception as e:
-        logger.error(f"Health check failed: {e}")
+        health = await agent_factory.health_check()
         return {
-            "status": "unhealthy",
-            "error": str(e),
+            "status": "healthy" if health["factory_status"] == "healthy" else "unhealthy",
+            "factory_status": health["factory_status"],
+            "openai_integration": health["openai_integration"]["status"],
+            "agents": {
+                "total": len(health["agents"]),
+                "healthy": len([a for a in health["agents"].values() if a["status"] == "healthy"]),
+                "details": health["agents"]
+            },
             "timestamp": datetime.utcnow().isoformat()
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Health check failed: {str(e)}")
 
-
-@app.get("/agents", response_model=Dict[str, Any])
-async def get_agents_info(manager: FutmatrixAgentManager = Depends(get_agent_manager)):
-    """Get information about available agents."""
-    return manager.get_agent_info()
-
-
-@app.get("/system/stats", response_model=Dict[str, Any])
-async def get_system_stats():
-    """Get detailed system statistics and metrics."""
+@app.get("/agents")
+async def list_agents():
+    """List all available agents."""
+    global agent_factory
+    
+    if not agent_factory:
+        raise HTTPException(status_code=503, detail="Agent factory not initialized")
+    
     try:
-        system_metrics = system_monitor.get_system_metrics()
-        api_stats = api_metrics.get_metrics()
+        agents = agent_factory.list_agents()
+        stats = agent_factory.get_factory_stats()
+        
+        return {
+            "agents": agents,
+            "statistics": stats,
+            "total_agents": len(agents),
+            "active_agents": len([a for a in agents if a["is_active"]]),
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list agents: {str(e)}")
+
+@app.post("/coach/analyze", response_model=AgentResponse)
+async def get_coaching_analysis(request: CoachingRequest):
+    """Get coaching analysis and performance recommendations."""
+    global agent_factory
+    
+    if not agent_factory:
+        raise HTTPException(status_code=503, detail="Agent factory not initialized")
+    
+    try:
+        # Process coaching request
+        response = await agent_factory.process_user_message(
+            agent_id="futmatrix_coach",
+            user_id=request.user_id,
+            message=request.message,
+            context={"focus_areas": request.focus_areas}
+        )
+        
+        if response["success"]:
+            return AgentResponse(
+                success=True,
+                agent_id="futmatrix_coach",
+                user_id=request.user_id,
+                response=response.get("response", "Coaching analysis completed"),
+                tokens_used=response.get("tokens_used", 0),
+                timestamp=datetime.utcnow().isoformat()
+            )
+        else:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Coaching analysis failed: {response.get('error', 'Unknown error')}"
+            )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
+
+@app.post("/rivalizer/match", response_model=AgentResponse)
+async def find_match_opponents(request: MatchmakingRequest):
+    """Find competitive match opponents and strategic insights."""
+    global agent_factory
+    
+    if not agent_factory:
+        raise HTTPException(status_code=503, detail="Agent factory not initialized")
+    
+    try:
+        # Process matchmaking request  
+        response = await agent_factory.process_user_message(
+            agent_id="futmatrix_rivalizer",
+            user_id=request.user_id,
+            message=request.message,
+            context={
+                "skill_level": request.skill_level,
+                "playstyle": request.playstyle
+            }
+        )
+        
+        if response["success"]:
+            return AgentResponse(
+                success=True,
+                agent_id="futmatrix_rivalizer",
+                user_id=request.user_id,
+                response=response.get("response", "Matchmaking analysis completed"),
+                tokens_used=response.get("tokens_used", 0),
+                timestamp=datetime.utcnow().isoformat()
+            )
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Matchmaking failed: {response.get('error', 'Unknown error')}"
+            )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
+
+@app.get("/stats")
+async def get_system_stats():
+    """Get detailed system statistics."""
+    global agent_factory
+    
+    if not agent_factory:
+        raise HTTPException(status_code=503, detail="Agent factory not initialized")
+    
+    try:
+        stats = agent_factory.get_factory_stats()
+        health = await agent_factory.health_check()
         
         return {
             "system_info": {
                 "service": "Futmatrix AI Agents",
                 "version": "1.0.0",
-                "uptime": system_metrics.get("uptime", "unknown"),
-                "agents_available": 2
+                "platform": "EA Sports FC 25",
+                "factory_status": health["factory_status"],
+                "openai_status": health["openai_integration"]["status"]
             },
-            "performance_metrics": system_metrics,
-            "api_metrics": api_stats,
-            "agent_status": {
-                "coach_agent": "operational",
-                "rivalizer_agent": "operational",
-                "total_agents": 2
+            "agent_statistics": stats,
+            "performance_metrics": {
+                "total_agents": stats["total_agents"],
+                "active_agents": stats["active_agents"],
+                "openai_agents": stats["openai_agents"],
+                "uptime": "operational"
             },
-            "integrations": {
-                "langgraph_status": "active",
-                "openai_status": "active" if os.getenv("OPENAI_API_KEY") else "inactive",
-                "supabase_status": "active" if os.getenv("SUPABASE_URL") else "inactive"
-            },
-            "production_readiness": {
-                "security": "90/100",
-                "monitoring": "85/100", 
-                "functionality": "95/100",
-                "documentation": "90/100",
-                "overall_score": "90/100"
-            },
+            "available_personalities": stats["available_personalities"],
+            "available_domains": stats["available_domains"],
             "timestamp": datetime.utcnow().isoformat()
         }
-        
     except Exception as e:
-        logger.error(f"System stats error: {e}")
-        return {
-            "error": "Failed to retrieve system statistics",
-            "timestamp": datetime.utcnow().isoformat()
-        }
+        raise HTTPException(status_code=500, detail=f"Failed to get stats: {str(e)}")
 
-
-# Protected endpoints (require API key authentication)
-@app.post("/coach/analyze", response_model=AgentResponse)
-async def coaching_analysis(
-    request: CoachingRequest,
-    manager: FutmatrixAgentManager = Depends(get_agent_manager)
-):
-    """
-    Request coaching analysis and performance feedback.
-    
-    Requires API key authentication via Authorization header:
-    `Authorization: Bearer your_api_key`
-    """
-    start_time = datetime.utcnow()
-    
-    try:
-        logger.info(f"Processing coaching analysis for user {request.user_id}")
-        
-        # Process coaching request
-        result = await manager.process_request("coach", request.user_id, request.message or "")
-        
-        # Track metrics
-        response_time = (datetime.utcnow() - start_time).total_seconds() * 1000
-        api_metrics.record_request("/coach/analyze", response_time, result["success"])
-        
-        # Build response
-        response = AgentResponse(
-            success=result["success"],
-            agent_type=result["agent_type"],
-            user_id=result["user_id"],
-            response=result.get("response"),
-            error=result.get("error"),
-            timestamp=result["timestamp"],
-            action_taken=result.get("action_taken"),
-            additional_data={
-                "plan_updated": result.get("plan_updated"),
-                "performance_analysis": result.get("performance_analysis"),
-                "response_time_ms": response_time
-            }
-        )
-        
-        if result["success"]:
-            logger.info(f"Coaching analysis successful for user {request.user_id}")
-        else:
-            logger.warning(f"Coaching analysis failed for user {request.user_id}: {result.get('error')}")
-        
-        return response
-        
-    except Exception as e:
-        logger.error(f"Coaching analysis error: {e}")
-        response_time = (datetime.utcnow() - start_time).total_seconds() * 1000
-        api_metrics.record_request("/coach/analyze", response_time, False)
-        
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Coaching analysis failed: {str(e)}"
-        )
-
-
-@app.post("/rivalizer/matchmake", response_model=AgentResponse)
-async def find_match_opponents(
-    request: MatchmakingRequest,
-    manager: FutmatrixAgentManager = Depends(get_agent_manager)
-):
-    """
-    Find suitable match opponents based on skill level and preferences.
-    
-    Requires API key authentication via Authorization header:
-    `Authorization: Bearer your_api_key`
-    """
-    start_time = datetime.utcnow()
-    
-    try:
-        logger.info(f"Processing matchmaking request for user {request.user_id}")
-        
-        # Process matchmaking request
-        result = await manager.process_request("rivalizer", request.user_id, request.message or "")
-        
-        # Track metrics
-        response_time = (datetime.utcnow() - start_time).total_seconds() * 1000
-        api_metrics.record_request("/rivalizer/matchmake", response_time, result["success"])
-        
-        # Build response
-        response = AgentResponse(
-            success=result["success"],
-            agent_type=result["agent_type"],
-            user_id=result["user_id"],
-            response=result.get("response"),
-            error=result.get("error"),
-            timestamp=result["timestamp"],
-            action_taken=result.get("action_taken"),
-            additional_data={
-                "suggestions_generated": result.get("suggestions_generated"),
-                "suggested_opponents": result.get("suggested_opponents"),
-                "response_time_ms": response_time
-            }
-        )
-        
-        if result["success"]:
-            logger.info(f"Matchmaking successful for user {request.user_id}")
-        else:
-            logger.warning(f"Matchmaking failed for user {request.user_id}: {result.get('error')}")
-        
-        return response
-        
-    except Exception as e:
-        logger.error(f"Matchmaking error: {e}")
-        response_time = (datetime.utcnow() - start_time).total_seconds() * 1000
-        api_metrics.record_request("/rivalizer/matchmake", response_time, False)
-        
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Matchmaking failed: {str(e)}"
-        )
-
-
-# Error handlers
-@app.exception_handler(HTTPException)
-async def http_exception_handler(request: Request, exc: HTTPException):
-    """Handle HTTP exceptions."""
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={
-            "error": exc.detail,
-            "status_code": exc.status_code,
-            "timestamp": datetime.utcnow().isoformat()
-        }
-    )
-
-
-@app.exception_handler(Exception)
-async def general_exception_handler(request: Request, exc: Exception):
-    """Handle general exceptions."""
-    logger.error(f"Unhandled exception: {exc}")
-    return JSONResponse(
-        status_code=500,
-        content={
-            "error": "Internal server error",
-            "timestamp": datetime.utcnow().isoformat()
-        }
-    )
-
-
-# Main entry point
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", "5000"))
-    
-    logger.info(f"Starting Futmatrix AI Agents API Server on port {port}")
+    print("🎮 Starting Futmatrix AI Agents API Server...")
+    print("🏆 Coach Agent: Performance analysis and training optimization")
+    print("⚔️ Rivalizer Agent: Competitive matchmaking and strategic insights")
+    print("🚀 Server starting on http://0.0.0.0:5000")
     
     uvicorn.run(
         "api_server_futmatrix:app",
         host="0.0.0.0",
-        port=port,
-        reload=False,
-        log_level="info"
+        port=5000,
+        log_level="info",
+        reload=False
     )
