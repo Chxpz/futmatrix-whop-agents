@@ -147,22 +147,21 @@ class DatabaseSchemaManager:
             validated_constraints = [self._validate_constraint(c) for c in table_def.constraints]
             columns_sql.extend(validated_constraints)
         
-        # Use text() with parameters for safer SQL execution
-        # Note: For DDL statements like CREATE TABLE, we still need dynamic construction
-        # but with strict validation and escaping
-        table_sql = text(f"""
+        # Use text() with safer SQL construction for DDL statements
+        # Note: DDL statements require dynamic construction but with strict validation and escaping
+        table_sql_str = f"""
         CREATE TABLE IF NOT EXISTS {escaped_schema}.{escaped_table} (
             {', '.join(columns_sql)}
         )
-        """)
+        """
         
-        # Execute with proper parameter binding
-        await conn.execute(str(table_sql))
+        # Execute DDL statement (no parameters needed for validated/escaped identifiers)
+        await conn.execute(table_sql_str)
         
         # Add table comment using parameterized query
         if table_def.description:
-            comment_sql = text(f"COMMENT ON TABLE {escaped_schema}.{escaped_table} IS $1")
-            await conn.execute(str(comment_sql), table_def.description)
+            comment_sql = f"COMMENT ON TABLE {escaped_schema}.{escaped_table} IS $1"
+            await conn.execute(comment_sql, table_def.description)
         
         # Create indexes with validated and escaped components
         for index_def in table_def.indexes:
@@ -172,8 +171,8 @@ class DatabaseSchemaManager:
             safe_index_suffix = index_def.replace('(', '').replace(')', '').replace(',', '_').replace(' ', '_')
             self._validate_sql_identifier(f"idx_{table_def.name}_{safe_index_suffix}")
             escaped_index_name = self._escape_identifier(f"idx_{table_def.name}_{safe_index_suffix}")
-            index_sql = text(f"CREATE INDEX IF NOT EXISTS {escaped_index_name} ON {escaped_schema}.{escaped_table} {validated_index_def}")
-            await conn.execute(str(index_sql))
+            index_sql = f"CREATE INDEX IF NOT EXISTS {escaped_index_name} ON {escaped_schema}.{escaped_table} {validated_index_def}"
+            await conn.execute(index_sql)
     
     def _validate_sql_identifier(self, identifier: str) -> None:
         """Validate SQL identifiers to prevent injection attacks."""
