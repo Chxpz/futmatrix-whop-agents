@@ -161,10 +161,8 @@ class DatabaseSchemaManager:
         
         # Add table comment using parameterized query
         if table_def.description:
-            await conn.execute(
-                f"COMMENT ON TABLE {escaped_schema}.{escaped_table} IS $1",
-                table_def.description
-            )
+            comment_sql = text(f"COMMENT ON TABLE {escaped_schema}.{escaped_table} IS $1")
+            await conn.execute(str(comment_sql), table_def.description)
         
         # Create indexes with validated and escaped components
         for index_def in table_def.indexes:
