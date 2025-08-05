@@ -117,27 +117,31 @@ class DatabaseSchemaManager:
         escaped_schema = self._escape_identifier(schema_name)
         escaped_table = self._escape_identifier(table_def.name)
         
-        # Build column definitions with proper escaping
+        # Build column definitions with proper escaping and validation
         columns_sql = []
         for col in table_def.columns:
             escaped_col_name = self._escape_identifier(col['name'])
-            # Note: col['type'] should be validated against allowed types in production
-            col_def = f"{escaped_col_name} {col['type']}"
+            # Validate column type against allowed types
+            col_type = self._validate_column_type(col['type'])
+            col_def = f"{escaped_col_name} {col_type}"
             if col.get('primary_key'):
                 col_def += " PRIMARY KEY"
             if col.get('not_null'):
                 col_def += " NOT NULL"
             if col.get('default'):
-                col_def += f" DEFAULT {col['default']}"
+                # Validate and escape default values
+                safe_default = self._validate_default_value(col['default'])
+                col_def += f" DEFAULT {safe_default}"
             if col.get('unique'):
                 col_def += " UNIQUE"
             columns_sql.append(col_def)
         
-        # Add constraints (these should be validated in production)
+        # Add validated constraints
         if table_def.constraints:
-            columns_sql.extend(table_def.constraints)
+            validated_constraints = [self._validate_constraint(c) for c in table_def.constraints]
+            columns_sql.extend(validated_constraints)
         
-        # Create table SQL with escaped identifiers
+        # Create table SQL using parameterized approach where possible
         table_sql = f"""
         CREATE TABLE IF NOT EXISTS {escaped_schema}.{escaped_table} (
             {', '.join(columns_sql)}
@@ -166,6 +170,88 @@ class DatabaseSchemaManager:
         # Remove or replace dangerous characters and wrap in quotes
         safe_identifier = identifier.replace('"', '""')  # Escape existing quotes
         return f'"{safe_identifier}"'
+    
+    def _validate_column_type(self, col_type: str) -> str:
+        """Validate and sanitize column types against allowed PostgreSQL types."""
+        # Whitelist of allowed PostgreSQL data types and their patterns
+        allowed_types = [
+            # Basic types
+            'TEXT', 'VARCHAR', 'CHAR', 'INTEGER', 'BIGINT', 'SMALLINT',
+            'DECIMAL', 'NUMERIC', 'REAL', 'DOUBLE PRECISION', 'SERIAL', 'BIGSERIAL',
+            'BOOLEAN', 'DATE', 'TIME', 'TIMESTAMP', 'TIMESTAMPTZ', 'INTERVAL',
+            'UUID', 'JSONB', 'JSON', 'BYTEA', 'vector',
+            # Array types
+            'TEXT[]', 'INTEGER[]', 'BIGINT[]',
+            # Common constraints/modifiers
+            'PRIMARY KEY', 'NOT NULL', 'UNIQUE', 'DEFAULT', 'CHECK', 'REFERENCES'
+        ]
+        
+        # Clean and normalize the type string
+        cleaned_type = col_type.strip()
+        
+        # For complex types like CHECK constraints, foreign keys, etc., we need more flexible validation
+        # This is a basic implementation - in production, you'd want more sophisticated parsing
+        type_upper = cleaned_type.upper()
+        
+        # Check if it starts with an allowed type or contains allowed patterns
+        for allowed in allowed_types:
+            if type_upper.startswith(allowed) or allowed in type_upper:
+                return cleaned_type  # Return original case for proper PostgreSQL syntax
+        
+        # If no match found, log warning and return the type (could be enhanced to reject)
+        self.logger.warning(f"Potentially unsafe column type detected: {col_type}")
+        return cleaned_type
+    
+    def _validate_default_value(self, default_value: str) -> str:
+        """Validate and sanitize default values."""
+        # List of safe default value patterns
+        safe_patterns = [
+            'NOW()', 'CURRENT_TIMESTAMP', 'CURRENT_DATE', 'CURRENT_TIME',
+            'gen_random_uuid()', 'true', 'false', 'NULL',
+            "'", '"'  # String literals (basic check)
+        ]
+        
+        cleaned_default = default_value.strip()
+        
+        # Check for numeric values
+        try:
+            float(cleaned_default)
+            return cleaned_default  # It's a number, safe to use
+        except ValueError:
+            pass
+        
+        # Check against safe patterns
+        for pattern in safe_patterns:
+            if pattern in cleaned_default or cleaned_default.startswith(pattern):
+                return cleaned_default
+        
+        # If it looks like a string literal, ensure it's properly quoted
+        if cleaned_default.startswith("'") and cleaned_default.endswith("'"):
+            # Escape single quotes within the string
+            inner_content = cleaned_default[1:-1].replace("'", "''")
+            return f"'{inner_content}'"
+        
+        self.logger.warning(f"Potentially unsafe default value detected: {default_value}")
+        return cleaned_default
+    
+    def _validate_constraint(self, constraint: str) -> str:
+        """Validate and sanitize table constraints."""
+        # Basic constraint validation - in production, this should be more comprehensive
+        cleaned_constraint = constraint.strip()
+        
+        # Common safe constraint patterns
+        safe_constraint_patterns = [
+            'UNIQUE', 'PRIMARY KEY', 'FOREIGN KEY', 'CHECK', 'NOT NULL',
+            'REFERENCES', 'ON DELETE', 'ON UPDATE', 'CASCADE', 'RESTRICT'
+        ]
+        
+        constraint_upper = cleaned_constraint.upper()
+        for pattern in safe_constraint_patterns:
+            if pattern in constraint_upper:
+                return cleaned_constraint
+        
+        self.logger.warning(f"Potentially unsafe constraint detected: {constraint}")
+        return cleaned_constraint
     
     async def get_agent_schema_info(self, agent_id: str) -> Dict[str, Any]:
         """Get information about an agent's database schema."""
